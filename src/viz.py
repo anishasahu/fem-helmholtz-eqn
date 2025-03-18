@@ -76,4 +76,50 @@ def plot_comparison(solver, u_real, u_imag, grid_points=50, fig_size=(18, 6)):
 
     plt.tight_layout()
 
-    return fig, axes
+    return fig
+
+
+def plot_mesh(eqn):
+    """Plot the generated mesh with nodes and elements."""
+    fig, ax = plt.subplots()
+
+    # Plot all nodes
+    ax.scatter(
+        eqn.nodes[:, 0], eqn.nodes[:, 1], color="blue", s=1, zorder=3, label="Nodes"
+    )
+
+    # Highlight boundary nodes
+    ax.scatter(
+        eqn.inner_boundary_nodes[:, 0],
+        eqn.inner_boundary_nodes[:, 1],
+        color="red",
+        s=1,
+        zorder=4,
+        label="Inner Boundary",
+    )
+    ax.scatter(
+        eqn.outer_boundary_nodes[:, 0],
+        eqn.outer_boundary_nodes[:, 1],
+        color="green",
+        s=1,
+        zorder=4,
+        label="Outer Boundary",
+    )
+
+    # Plot element connectivity (edges)
+    for element in eqn.elements:
+        element_coords = eqn.nodes[element]
+        for i in range(4):  # Loop through the 4 corners of each quadrilateral
+            x_coords = [element_coords[i, 0], element_coords[(i + 1) % 4, 0]]
+            y_coords = [element_coords[i, 1], element_coords[(i + 1) % 4, 1]]
+            ax.plot(x_coords, y_coords, color="black", lw=1.5, zorder=2)
+
+    # Set plot attributes
+    ax.set_aspect("equal")
+    ax.set_title("Mesh Plot with Nodes and Elements")
+    ax.legend(loc="upper right")
+
+    plt.grid(True)
+    plt.tight_layout()
+
+    return fig

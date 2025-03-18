@@ -134,18 +134,23 @@ class FEM2DSolver:
         # Initialize flux
         flux = complex(0.0, 0.0)
 
-        # Compute the sum for Bessel functions
         for n in range(self.n_fourier):
             # Derivative of Bessel function
             jnp_val = k * jvp(n, kr)
 
             # Contribution for positive n
-            flux += (self.eqn.i**n) * k * np.exp(self.eqn.i * n * theta) * jnp_val
+            flux += (
+                (self.eqn.i**n) * k * np.pow(np.exp(self.eqn.i * theta), n) * jnp_val
+            )
 
-            # Contribution for negative n (except n=0)
-            if n > 0:
-                flux += (self.eqn.i**n) * k * np.exp(-self.eqn.i * n * theta) * jnp_val
+        for n in range(1, self.n_fourier):
+            # Derivative of Bessel function
+            jnp_val = k * jvp(n, kr)
 
+            # Contribution for positive n
+            flux += (
+                (self.eqn.i**n) * k * np.pow(np.exp(-self.eqn.i * theta), n) * jnp_val
+            )
         return flux
 
     def abc_condition(self, order: int):
@@ -182,6 +187,7 @@ class FEM2DSolver:
     def apply_boundary_conditions(self):
         for idx in self.eqn.inner_boundary_node_indices:
             x, y = self.eqn.nodes[idx]
+
             self.F[idx] += self.get_normal_derivative(
                 x, y
             )  # Add to right-hand side (F)

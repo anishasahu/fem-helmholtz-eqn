@@ -47,7 +47,7 @@ class HelmHoltz:
         inner_loop = gmsh.model.occ.addCurveLoop([inner])
 
         # Create surface with inner loop as a hole
-        surface = gmsh.model.occ.addPlaneSurface([outer_loop, inner_loop])
+        surface = gmsh.model.occ.addPlaneSurface([outer_loop, inner_loop])  # noqa: F841
         gmsh.model.occ.synchronize()
 
         # Define mesh size
@@ -68,9 +68,7 @@ class HelmHoltz:
         self.elements = []
         elem_types, elem_tags, node_tags = gmsh.model.mesh.getElements(2)
         for i, etype in enumerate(elem_types):
-            if etype == 16:  # Biquadratic quadrilateral
-                self.elements = np.array(node_tags[i]).reshape(-1, 9) - 1
-                break
+            self.elements = np.array(node_tags[i]).reshape(-1, 9) - 1
         self.n_elements = len(self.elements)
 
         # Identify boundary nodes
