@@ -1,12 +1,11 @@
+from typing import Tuple
+
 import numpy as np
 from scipy.sparse import lil_matrix
-from src.helmholtz import HelmHoltz
-from scipy.special import roots_legendre
-from scipy.special import hankel1, jvp, h1vp
 from scipy.sparse.linalg import spsolve
+from scipy.special import h1vp, hankel1, jvp, roots_legendre
 
-
-from typing import Tuple
+from src.helmholtz import HelmHoltz
 
 
 class FEM2DSolver:
@@ -75,6 +74,9 @@ class FEM2DSolver:
     def get_element_matrices(self, idx) -> Tuple[np.ndarray, np.ndarray]:
         element_nodes = self.eqn.elements[idx]
         node_coords = self.eqn.nodes[element_nodes]
+
+        print(type(node_coords))
+        print(len(node_coords))
 
         K_e = np.zeros((9, 9), dtype=complex)
         F_e = np.zeros(9, dtype=complex)
@@ -164,11 +166,11 @@ class FEM2DSolver:
             for i in range(n_boundary):
                 self.abc_matrix[i, i] = coef
         elif order == 3:
-            for i, ith_node in enumerate(self.eqn.outer_boundary_nodes):
+            for i, ith_node in enumerate(self.eqn.outer_boundary_node_indices):
                 theta_i = np.arctan2(
                     self.eqn.nodes[ith_node, 1], self.eqn.nodes[ith_node, 0]
                 )
-                for j, jth_node in enumerate(self.eqn.outer_boundary_nodes):
+                for j, jth_node in enumerate(self.eqn.outer_boundary_node_indices):
                     theta_j = np.arctan2(
                         self.eqn.nodes[jth_node, 1], self.eqn.nodes[jth_node, 0]
                     )
@@ -181,7 +183,7 @@ class FEM2DSolver:
                         self.abc_matrix[i, j] = coef
 
     def apply_boundary_conditions(self):
-        for idx in self.eqn.inner_boundary_nodes:
+        for idx in self.eqn.inner_boundary_node_indices:
             x, y = self.eqn.nodes[idx]
             self.F[idx] += self.get_normal_derivative(
                 x, y
@@ -190,8 +192,8 @@ class FEM2DSolver:
         # setup dtn matrix
         self.abc_condition(order=self.abc_order)
 
-        for i, ith_node in enumerate(self.eqn.outer_boundary_nodes):
-            for j, jth_node in enumerate(self.eqn.outer_boundary_nodes):
+        for i, ith_node in enumerate(self.eqn.outer_boundary_node_indices):
+            for j, jth_node in enumerate(self.eqn.outer_boundary_node_indices):
                 self.K[ith_node, jth_node] += self.abc_matrix[i, j]
 
     def assemble(self) -> None:

@@ -1,3 +1,4 @@
+import gmsh
 import numpy as np
 
 
@@ -21,6 +22,9 @@ class HelmHoltz:
         self.n_theta = n_theta
         self.n_r = n_r
 
+        self.n_theta_nodes = 2 * self.n_theta + 1
+        self.n_r_nodes = 2 * self.n_r + 1
+
         # Complex number i
         self.i = complex(0.0, 1.0)
 
@@ -30,94 +34,84 @@ class HelmHoltz:
         self.u_imag = np.zeros(self.n_nodes)
 
     def generate_mesh(self):
-        """Generate annular mesh with quadratic elements."""
-        # Number of nodes in each direction (quadratic elements)
-        self.n_theta_nodes = 2 * self.n_theta + 1
-        self.n_r_nodes = 2 * self.n_r + 1
+        """Generate annular mesh using Gmsh with biquadratic quadrilateral elements."""
+        gmsh.initialize()
+        gmsh.model.add("annulus")
 
-        # Total number of nodes
-        self.n_nodes = self.n_theta_nodes * self.n_r_nodes
+        # Define the inner and outer circular boundaries
+        outer = gmsh.model.occ.addCircle(0, 0, 0, self.outer_radius)
+        inner = gmsh.model.occ.addCircle(0, 0, 0, self.inner_radius)
 
-        # Create node coordinates
-        self.nodes = np.zeros((self.n_nodes, 2))
+        # Create curve loops
+        outer_loop = gmsh.model.occ.addCurveLoop([outer])
+        inner_loop = gmsh.model.occ.addCurveLoop([inner])
 
-        # Angle and radius increments
-        d_theta = 2 * np.pi / self.n_theta
-        d_r = (self.outer_radius - self.inner_radius) / self.n_r
+        # Create surface with inner loop as a hole
+        surface = gmsh.model.occ.addPlaneSurface([outer_loop, inner_loop])
+        gmsh.model.occ.synchronize()
 
-        # Create nodes
-        node_idx = 0
-        for r_idx in range(self.n_r_nodes):
-            r = self.inner_radius + (r_idx * d_r / 2)
-            for theta_idx in range(self.n_theta_nodes):
-                theta = (theta_idx * d_theta / 2) % (2 * np.pi)
+        # Define mesh size
+        mesh_size = (self.outer_radius - self.inner_radius) / self.n_r
+        gmsh.model.mesh.setSize(gmsh.model.getEntities(0), mesh_size)
 
-                # Convert to Cartesian coordinates
-                x = r * np.cos(theta)
-                y = r * np.sin(theta)
+        # Generate 2D mesh with biquadratic quadrilateral elements
+        gmsh.model.mesh.generate(2)
+        gmsh.model.mesh.recombine()
+        gmsh.model.mesh.setOrder(2)  # Biquadratic elements
 
-                self.nodes[node_idx] = [x, y]
-                node_idx += 1
+        # Extract node coordinates
+        node_tags, node_coords, _ = gmsh.model.mesh.getNodes()
+        self.nodes = np.array(node_coords).reshape(-1, 3)[:, :2]
+        self.n_nodes = len(self.nodes)
 
-        # Create element connectivity for quadratic elements
+        # Extract element connectivity
         self.elements = []
-
-        for r_idx in range(self.n_r):
-            for theta_idx in range(self.n_theta):
-                # Calculate node indices for this element (9 nodes for quadratic element)
-                element_nodes = []
-
-                # Corner nodes
-                r1_t1 = (2 * r_idx) * self.n_theta_nodes + (2 * theta_idx)
-                r1_t2 = (2 * r_idx) * self.n_theta_nodes + (
-                    (2 * theta_idx + 2) % self.n_theta_nodes
-                )
-                r2_t1 = (2 * r_idx + 2) * self.n_theta_nodes + (2 * theta_idx)
-                r2_t2 = (2 * r_idx + 2) * self.n_theta_nodes + (
-                    (2 * theta_idx + 2) % self.n_theta_nodes
-                )
-
-                # Mid-side nodes
-                r1_tmid = (2 * r_idx) * self.n_theta_nodes + (
-                    (2 * theta_idx + 1) % self.n_theta_nodes
-                )
-                r2_tmid = (2 * r_idx + 2) * self.n_theta_nodes + (
-                    (2 * theta_idx + 1) % self.n_theta_nodes
-                )
-                rmid_t1 = (2 * r_idx + 1) * self.n_theta_nodes + (2 * theta_idx)
-                rmid_t2 = (2 * r_idx + 1) * self.n_theta_nodes + (
-                    (2 * theta_idx + 2) % self.n_theta_nodes
-                )
-
-                # Center node
-                rmid_tmid = (2 * r_idx + 1) * self.n_theta_nodes + (
-                    (2 * theta_idx + 1) % self.n_theta_nodes
-                )
-
-                # Add nodes in counter-clockwise order (for quadratic element)
-                element_nodes = [
-                    r1_t1,
-                    r1_tmid,
-                    r1_t2,
-                    rmid_t2,
-                    r2_t2,
-                    r2_tmid,
-                    r2_t1,
-                    rmid_t1,
-                    rmid_tmid,
-                ]
-                self.elements.append(element_nodes)
-
-        # Store element count
+        elem_types, elem_tags, node_tags = gmsh.model.mesh.getElements(2)
+        for i, etype in enumerate(elem_types):
+            if etype == 16:  # Biquadratic quadrilateral
+                self.elements = np.array(node_tags[i]).reshape(-1, 9) - 1
+                break
         self.n_elements = len(self.elements)
 
         # Identify boundary nodes
         self.inner_boundary_nodes = []
         self.outer_boundary_nodes = []
 
-        for i, node in enumerate(self.nodes):
-            r = np.sqrt(node[0] ** 2 + node[1] ** 2)
-            if abs(r - self.inner_radius) < 1e-10:
-                self.inner_boundary_nodes.append(i)
-            elif abs(r - self.outer_radius) < 1e-10:
-                self.outer_boundary_nodes.append(i)
+        # for tag in gmsh.model.getEntities(1):
+        #     curve_nodes = gmsh.model.mesh.getNodes(tag[0], tag[1])[1]
+        #     curve_nodes = np.array(curve_nodes).reshape(-1, 3)[:, :2]
+
+        #     if np.isclose(
+        #         np.linalg.norm(curve_nodes, axis=1), self.inner_radius, atol=1e-10
+        #     ).any():
+        #         self.inner_boundary_nodes.extend(curve_nodes)
+
+        #     elif np.isclose(
+        #         np.linalg.norm(curve_nodes, axis=1), self.outer_radius, atol=1e-10
+        #     ).any():
+        #         self.outer_boundary_nodes.extend(curve_nodes)
+
+        # Identify boundary nodes by their indices rather than coordinates
+        self.inner_boundary_node_indices = []
+        self.outer_boundary_node_indices = []
+
+        # Calculate distances of all nodes from origin
+        node_distances = np.linalg.norm(self.nodes, axis=1)
+
+        # Find indices of nodes on inner boundary
+        inner_indices = np.where(
+            np.isclose(node_distances, self.inner_radius, atol=1e-10)
+        )[0]
+        self.inner_boundary_node_indices = list(inner_indices)
+
+        # Find indices of nodes on outer boundary
+        outer_indices = np.where(
+            np.isclose(node_distances, self.outer_radius, atol=1e-10)
+        )[0]
+        self.outer_boundary_node_indices = list(outer_indices)
+
+        # Also keep the actual coordinates for convenience if needed
+        self.inner_boundary_nodes = self.nodes[self.inner_boundary_node_indices]
+        self.outer_boundary_nodes = self.nodes[self.outer_boundary_node_indices]
+
+        gmsh.finalize()
