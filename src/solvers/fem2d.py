@@ -75,9 +75,6 @@ class FEM2DSolver:
         element_nodes = self.eqn.elements[idx]
         node_coords = self.eqn.nodes[element_nodes]
 
-        print(type(node_coords))
-        print(len(node_coords))
-
         K_e = np.zeros((9, 9), dtype=complex)
         F_e = np.zeros(9, dtype=complex)
 
