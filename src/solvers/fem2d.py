@@ -10,10 +10,17 @@ from typing import Tuple
 
 
 class FEM2DSolver:
-    def __init__(self, eqn: "HelmHoltz", k_squared=1.0, n_fourier=10):
+    def __init__(
+        self,
+        eqn: "HelmHoltz",
+        k_squared: float = 1.0,
+        n_fourier: int = 10,
+        abc_order: int = 3,
+    ):
         self.eqn = eqn
         self.k_squared = k_squared
         self.n_fourier = n_fourier
+        self.abc_order = abc_order
 
     def get_shape_functions(self, xi, eta):
         # Shape functions for 9-node element
@@ -142,55 +149,36 @@ class FEM2DSolver:
 
         return flux
 
-    def dtn_condition(self) -> None:
-        # Number of outer boundary nodes
+    def abc_condition(self, order: int):
         n_boundary = len(self.eqn.outer_boundary_nodes)
 
-        # Initialize DtN matrix
-        self.dtn_matrix = np.zeros((n_boundary, n_boundary), dtype=complex)
-
-        # Radius of the outer boundary
-        a = self.eqn.outer_radius
-
-        # Wavenumber
+        self.abc_matrix = np.zeros((n_boundary, n_boundary), dtype=complex)
         k = np.sqrt(self.k_squared)
 
-        # Set up the DtN operator (approximated by Fourier terms)
-        for i, ith_node in enumerate(self.eqn.outer_boundary_nodes):
-            xi, yi = self.eqn.nodes[ith_node]
-            theta_i = np.arctan2(yi, xi)
-
-            for j, jth_node in enumerate(self.eqn.outer_boundary_nodes):
-                xj, yj = self.eqn.nodes[jth_node]
-                theta_j = np.arctan2(yj, xj)
-
-                # Compute DtN contribution using Fourier series
-                gamma_ij = complex(0.0, 0.0)
-
-                for n in range(-self.n_fourier, self.n_fourier + 1):
-                    if n == 0:
-                        continue  # Skip n=0 term (handled separately)
-
-                    # DtN operator in Fourier space
-                    h_n = hankel1(abs(n), k * a)
-                    h_n_prime = k * h1vp(abs(n), k * a)
-
-                    gamma_n = h_n_prime / h_n
-
-                    # Contribution to the Fourier series
-                    gamma_ij += gamma_n * np.exp(self.eqn.i * n * (theta_i - theta_j))
-
-                # Add n=0 term
-                h_0 = hankel1(0, k * a)
-                h_0_prime = k * h1vp(0, k * a)
-                gamma_0 = h_0_prime / h_0
-
-                gamma_ij += gamma_0
-
-                # Normalize by number of Fourier terms
-                gamma_ij /= 2 * self.n_fourier + 1
-
-                self.dtn_matrix[i, j] = gamma_ij
+        if order == 1:
+            coef = self.eqn.i * k
+            for i in range(n_boundary):
+                self.abc_matrix[i, i] = coef
+        elif order == 2:
+            coef = -self.eqn.i * k - 1.0 / (2.0 * self.eqn.outer_radius)
+            for i in range(n_boundary):
+                self.abc_matrix[i, i] = coef
+        elif order == 3:
+            for i, ith_node in enumerate(self.eqn.outer_boundary_nodes):
+                theta_i = np.arctan2(
+                    self.eqn.nodes[ith_node, 1], self.eqn.nodes[ith_node, 0]
+                )
+                for j, jth_node in enumerate(self.eqn.outer_boundary_nodes):
+                    theta_j = np.arctan2(
+                        self.eqn.nodes[jth_node, 1], self.eqn.nodes[jth_node, 0]
+                    )
+                    if abs(theta_i - theta_j) < 0.5:
+                        coef = (
+                            -self.eqn.i * k
+                            - 1.0 / (2.0 * self.eqn.outer_radius)
+                            - self.eqn.i / (8.0 * k * self.eqn.outer_radius**2)
+                        )
+                        self.abc_matrix[i, j] = coef
 
     def apply_boundary_conditions(self):
         for idx in self.eqn.inner_boundary_nodes:
@@ -200,11 +188,11 @@ class FEM2DSolver:
             )  # Add to right-hand side (F)
 
         # setup dtn matrix
-        self.dtn_condition()
+        self.abc_condition(order=self.abc_order)
 
         for i, ith_node in enumerate(self.eqn.outer_boundary_nodes):
             for j, jth_node in enumerate(self.eqn.outer_boundary_nodes):
-                self.K[ith_node, jth_node] -= self.dtn_matrix[i, j]
+                self.K[ith_node, jth_node] += self.abc_matrix[i, j]
 
     def assemble(self) -> None:
         # global matrices
@@ -252,8 +240,6 @@ class FEM2DSolver:
 
             # Bessel and Hankel functions at inner_radius
             k_a = k * self.eqn.inner_radius
-            # j_a = jv(n, k_a)
-            # h_a = hankel1(n, k_a)
 
             # Derivatives
             jp_a = k * jvp(n, k_a)
