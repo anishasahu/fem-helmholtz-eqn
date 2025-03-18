@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 
 
 def plot_comparison(solver, u_real, u_imag, grid_points=50, fig_size=(18, 6)):
@@ -42,7 +41,7 @@ def plot_comparison(solver, u_real, u_imag, grid_points=50, fig_size=(18, 6)):
             )
 
     # Compute magnitude of exact solution
-    mag_exact = np.abs(u_exact)
+    map_exact = np.abs(u_exact)
 
     # Create plots
     fig, axes = plt.subplots(1, 2, figsize=fig_size, subplot_kw={"projection": "3d"})
@@ -52,11 +51,11 @@ def plot_comparison(solver, u_real, u_imag, grid_points=50, fig_size=(18, 6)):
         x_fem,
         y_fem,
         mag_fem,
-        cmap=mpl.colormaps["viridis"],
+        color="green",
         edgecolor="none",
         alpha=0.9,
     )
-    axes[0].set_title("FEM Solution")
+    axes[0].set_title("Numerical Solution")
     axes[0].set_xlabel("X")
     axes[0].set_ylabel("Y")
     axes[0].set_zlabel("|u|")
@@ -65,12 +64,12 @@ def plot_comparison(solver, u_real, u_imag, grid_points=50, fig_size=(18, 6)):
     axes[1].plot_surface(
         x_grid,
         y_grid,
-        mag_exact,
-        cmap=mpl.colormaps["viridis"],
+        map_exact,
+        color="red",
         edgecolor="none",
         alpha=0.9,
     )
-    axes[1].set_title("Exact Solution")
+    axes[1].set_title("Analytical Solution")
     axes[1].set_xlabel("X")
     axes[1].set_ylabel("Y")
     axes[1].set_zlabel("|u|")
