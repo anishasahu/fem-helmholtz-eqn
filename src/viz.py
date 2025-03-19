@@ -1,5 +1,6 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 
 def plot_comparison(solver, u_real, u_imag, grid_points=50, fig_size=(18, 6)):
@@ -17,48 +18,34 @@ def plot_comparison(solver, u_real, u_imag, grid_points=50, fig_size=(18, 6)):
     x_grid = r_grid * np.cos(theta_grid)
     y_grid = r_grid * np.sin(theta_grid)
 
+    # R, Theta = np.meshgrid(r, theta, indexing="ij")
+    # X = R * np.cos(Theta)
+    # Y = R * np.sin(Theta)
+
+    # # Plot analytical solution (red)
+    # ax.plot_surface(X, Y, u_exact, color='red', alpha=0.5)
+
     # Calculate exact solution on the grid
     u_exact = np.zeros((grid_points, grid_points), dtype=complex)
     for i in range(grid_points):
         for j in range(grid_points):
             u_exact[i, j] = solver.get_analytical_solution(x_grid[i, j], y_grid[i, j])
 
-    # Extract numerical solution and reshape to structured grid
-    n_theta_nodes = solver.eqn.n_theta_nodes
-    n_r_nodes = solver.eqn.n_r_nodes
-
-    x_fem = np.zeros((n_r_nodes, n_theta_nodes))
-    y_fem = np.zeros((n_r_nodes, n_theta_nodes))
-    mag_fem = np.zeros((n_r_nodes, n_theta_nodes))
-
-    for r_idx in range(n_r_nodes):
-        for theta_idx in range(n_theta_nodes):
-            node_idx = r_idx * n_theta_nodes + theta_idx
-            x_fem[r_idx, theta_idx] = solver.eqn.nodes[node_idx, 0]
-            y_fem[r_idx, theta_idx] = solver.eqn.nodes[node_idx, 1]
-            mag_fem[r_idx, theta_idx] = np.sqrt(
-                u_real[node_idx] ** 2 + u_imag[node_idx] ** 2
-            )
-
     # Compute magnitude of exact solution
-    map_exact = np.abs(u_exact)
-
+    map_exact = np.sqrt(np.real(u_exact)**2 + np.imag(u_exact)**2)
     # Create plots
+    # fig = plt.figure(figsize=fig_size)
+    # axes = fig.add_subplot(111, projection="3d")
     fig, axes = plt.subplots(1, 2, figsize=fig_size, subplot_kw={"projection": "3d"})
 
-    # Plot numerical solution
-    axes[0].plot_surface(
-        x_fem,
-        y_fem,
-        mag_fem,
-        color="green",
-        edgecolor="none",
-        alpha=0.9,
-    )
-    axes[0].set_title("Numerical Solution")
-    axes[0].set_xlabel("X")
-    axes[0].set_ylabel("Y")
-    axes[0].set_zlabel("|u|")
+    for element in solver.eqn.elements:
+        x = solver.eqn.nodes[element, 0]
+        y = solver.eqn.nodes[element, 1]
+        u_mag = np.sqrt(u_real**2 + u_imag**2)
+        z = u_mag[element]
+        verts = [list(zip(x, y, z))]
+        poly = Poly3DCollection(verts, alpha=0.6, color="green")
+        axes[0].add_collection3d(poly)
 
     # Plot exact solution
     axes[1].plot_surface(

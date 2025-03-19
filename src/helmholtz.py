@@ -75,20 +75,6 @@ class HelmHoltz:
         self.inner_boundary_nodes = []
         self.outer_boundary_nodes = []
 
-        # for tag in gmsh.model.getEntities(1):
-        #     curve_nodes = gmsh.model.mesh.getNodes(tag[0], tag[1])[1]
-        #     curve_nodes = np.array(curve_nodes).reshape(-1, 3)[:, :2]
-
-        #     if np.isclose(
-        #         np.linalg.norm(curve_nodes, axis=1), self.inner_radius, atol=1e-10
-        #     ).any():
-        #         self.inner_boundary_nodes.extend(curve_nodes)
-
-        #     elif np.isclose(
-        #         np.linalg.norm(curve_nodes, axis=1), self.outer_radius, atol=1e-10
-        #     ).any():
-        #         self.outer_boundary_nodes.extend(curve_nodes)
-
         # Identify boundary nodes by their indices rather than coordinates
         self.inner_boundary_node_indices = []
         self.outer_boundary_node_indices = []
@@ -97,19 +83,26 @@ class HelmHoltz:
         node_distances = np.linalg.norm(self.nodes, axis=1)
 
         # Find indices of nodes on inner boundary
-        inner_indices = np.where(
-            np.isclose(node_distances, self.inner_radius, atol=1e-10)
+        self.inner_boundary_node_indices = np.where(
+            node_distances == self.inner_radius
         )[0]
-        self.inner_boundary_node_indices = list(inner_indices)
 
         # Find indices of nodes on outer boundary
-        outer_indices = np.where(
-            np.isclose(node_distances, self.outer_radius, atol=1e-10)
+        self.outer_boundary_node_indices = np.where(
+            node_distances == self.outer_radius
         )[0]
-        self.outer_boundary_node_indices = list(outer_indices)
 
         # Also keep the actual coordinates for convenience if needed
         self.inner_boundary_nodes = self.nodes[self.inner_boundary_node_indices]
         self.outer_boundary_nodes = self.nodes[self.outer_boundary_node_indices]
+
+        self.inner_boundary_element_indices = []
+        self.outer_boundary_element_indices = []
+
+        for idx, element in enumerate(self.elements):
+            if any(node in element for node in self.inner_boundary_node_indices):
+                self.inner_boundary_element_indices.append(idx)
+            if any(node in element for node in self.outer_boundary_node_indices):
+                self.outer_boundary_element_indices.append(idx)
 
         gmsh.finalize()
