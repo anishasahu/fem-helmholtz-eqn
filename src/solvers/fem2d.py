@@ -325,7 +325,7 @@ class FEM2DSolver:
         k = np.sqrt(self.k_squared)
 
         # Compute the exact solution
-        u_ex = complex(0.0, 0.0)
+        u_ex = 0 + 0j
 
         # Evaluate Hankel functions at unit radius and at r
         for m in range(-self.n_fourier, self.n_fourier + 1):
@@ -337,7 +337,7 @@ class FEM2DSolver:
             hp_m = h1vp(m, k * r)
 
             # Contribution for positive n
-            u_ex -= (
+            u_ex += (
                 (self.eqn.i**m) * h_r * (jp_m / hp_m) * np.exp(self.eqn.i * m * theta)
             )
 
