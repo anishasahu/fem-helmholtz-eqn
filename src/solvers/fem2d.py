@@ -1,8 +1,6 @@
 from typing import Tuple
 
 import numpy as np
-from scipy.sparse import lil_matrix
-from scipy.sparse.linalg import spsolve
 from scipy.special import h1vp, hankel1, jvp, roots_legendre
 
 from src.helmholtz import HelmHoltz
@@ -279,10 +277,9 @@ class FEM2DSolver:
         return N_e
 
     def assemble(self) -> None:
-        # global matrices
-        self.K = lil_matrix((self.eqn.n_nodes, self.eqn.n_nodes), dtype=complex)
+        self.K = np.zeros((self.eqn.n_nodes, self.eqn.n_nodes), dtype=complex)
         self.F = np.zeros(self.eqn.n_nodes, dtype=complex)
-        self.S = lil_matrix((self.eqn.n_nodes, self.eqn.n_nodes), dtype=complex)
+        self.S = np.zeros((self.eqn.n_nodes, self.eqn.n_nodes), dtype=complex)
         self.N = np.zeros(self.eqn.n_nodes, dtype=complex)
 
         for idx in self.eqn.inner_boundary_element_indices:
@@ -313,12 +310,10 @@ class FEM2DSolver:
         self.K = self.K + self.S
         self.F = self.F + self.N
 
-        self.K = self.K.tocsr()
-
     def solve(self) -> Tuple[np.ndarray, np.ndarray]:
         self.assemble()
 
-        u_complex = spsolve(self.K, self.F)
+        u_complex = np.linalg.solve(self.K, self.F)
         u_real = np.real(u_complex)
         u_imag = np.imag(u_complex)
 
