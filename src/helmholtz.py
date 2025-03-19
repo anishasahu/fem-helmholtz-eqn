@@ -83,13 +83,19 @@ class HelmHoltz:
         node_distances = np.linalg.norm(self.nodes, axis=1)
 
         # Find indices of nodes on inner boundary
+        # self.inner_boundary_node_indices = np.where(
+        #     node_distances == self.inner_radius
+        # )[0]
         self.inner_boundary_node_indices = np.where(
-            node_distances == self.inner_radius
+            np.isclose(node_distances, self.inner_radius, atol=1e-5)
         )[0]
 
         # Find indices of nodes on outer boundary
+        # self.outer_boundary_node_indices = np.where(
+        #     node_distances == self.outer_radius
+        # )[0]
         self.outer_boundary_node_indices = np.where(
-            node_distances == self.outer_radius
+            np.isclose(node_distances, self.outer_radius, atol=1e-5)
         )[0]
 
         # Also keep the actual coordinates for convenience if needed
