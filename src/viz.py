@@ -4,12 +4,8 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 
 def plot_comparison(solver, u_real, u_imag, grid_points=50, fig_size=(18, 6)):
-    # Create a regular grid for plotting the exact solution
-    r_min = solver.eqn.inner_radius
-    r_max = solver.eqn.outer_radius
-
     theta = np.linspace(0, 2 * np.pi, grid_points)
-    r = np.linspace(r_min, r_max, grid_points)
+    r = np.linspace(solver.eqn.inner_radius, solver.eqn.outer_radius, grid_points)
 
     # Create meshgrid for polar coordinates
     r_grid, theta_grid = np.meshgrid(r, theta)
@@ -18,13 +14,6 @@ def plot_comparison(solver, u_real, u_imag, grid_points=50, fig_size=(18, 6)):
     x_grid = r_grid * np.cos(theta_grid)
     y_grid = r_grid * np.sin(theta_grid)
 
-    # R, Theta = np.meshgrid(r, theta, indexing="ij")
-    # X = R * np.cos(Theta)
-    # Y = R * np.sin(Theta)
-
-    # # Plot analytical solution (red)
-    # ax.plot_surface(X, Y, u_exact, color='red', alpha=0.5)
-
     # Calculate exact solution on the grid
     u_exact = np.zeros((grid_points, grid_points), dtype=complex)
     for i in range(grid_points):
@@ -32,10 +21,9 @@ def plot_comparison(solver, u_real, u_imag, grid_points=50, fig_size=(18, 6)):
             u_exact[i, j] = solver.get_analytical_solution(x_grid[i, j], y_grid[i, j])
 
     # Compute magnitude of exact solution
-    map_exact = np.sqrt(np.real(u_exact)**2 + np.imag(u_exact)**2)
+    map_exact = np.sqrt(np.real(u_exact) ** 2 + np.imag(u_exact) ** 2)
+
     # Create plots
-    # fig = plt.figure(figsize=fig_size)
-    # axes = fig.add_subplot(111, projection="3d")
     fig, axes = plt.subplots(1, 2, figsize=fig_size, subplot_kw={"projection": "3d"})
 
     for element in solver.eqn.elements:

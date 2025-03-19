@@ -122,40 +122,32 @@ class FEM2DSolver:
         return K_e, F_e
 
     def get_normal_derivative(self, x, y) -> complex:
-        # Convert to polar coordinates
         r = np.sqrt(x**2 + y**2)
         theta = np.arctan2(y, x)
-
-        # Argument for Bessel functions
         k = np.sqrt(self.k_squared)
-        kr = k * r
 
         # Initialize flux
         flux = complex(0.0, 0.0)
 
-        for n in range(-self.n_fourier, self.n_fourier + 1):
+        for m in range(-self.n_fourier, self.n_fourier + 1):
             # Derivative of Bessel function
-            jnp_val = jvp(n, kr)
+            jnp = jvp(m, k * r)
 
             # Contribution for positive n
-            flux += (self.eqn.i**n) * k * np.exp(self.eqn.i * n * theta) * jnp_val
+            flux += (self.eqn.i**m) * k * np.exp(self.eqn.i * m * theta) * jnp
 
         return flux
 
     def abc_condition(self, order: int):
-        # n_boundary = len(self.eqn.outer_boundary_nodes)
-
-        # self.abc_matrix = np.zeros((n_boundary, n_boundary), dtype=complex)
         k = np.sqrt(self.k_squared)
+
+        # set default value
+        coef = self.eqn.i * k
 
         if order == 1:
             coef = self.eqn.i * k
-            # for i in range(n_boundary):
-            #     self.abc_matrix[i, i] = coef
         elif order == 2:
             coef = -self.eqn.i * k - 1.0 / (2.0 * self.eqn.outer_radius)
-            # for i in range(n_boundary):
-            #     self.abc_matrix[i, i] = coef
         elif order == 3:
             for i, ith_node in enumerate(self.eqn.outer_boundary_node_indices):
                 theta_i = np.arctan2(
@@ -171,7 +163,8 @@ class FEM2DSolver:
                             - 1.0 / (2.0 * self.eqn.outer_radius)
                             - self.eqn.i / (8.0 * k * self.eqn.outer_radius**2)
                         )
-                        # self.abc_matrix[i, j] = coef
+        else:
+            raise ValueError("Invalid order for ABC condition")
 
         return coef
 
@@ -223,7 +216,6 @@ class FEM2DSolver:
 
                 for m in range(9):
                     for n in range(9):
-                        # Sommerfeld matrix: (ikφmφn)
                         if (
                             np.linalg.norm(node_coords[m]) == self.eqn.outer_radius
                             and np.linalg.norm(node_coords[n]) == self.eqn.outer_radius
@@ -239,7 +231,6 @@ class FEM2DSolver:
         x, y = node_coords[:, 0], node_coords[:, 1]
 
         N_e = np.zeros(9, dtype=complex)
-
         gauss_points, gauss_weights = roots_legendre(3)
 
         for i, xi in enumerate(gauss_points):
@@ -281,7 +272,6 @@ class FEM2DSolver:
                 weight = gauss_weights[i] * gauss_weights[j] * detJ
 
                 for m in range(9):
-                    # Neumann matrix: (φmφn)
                     if np.linalg.norm(node_coords[m]) == self.eqn.inner_radius:
                         N_e[m] += weight * N[m] * self.get_normal_derivative(x[m], y[m])
                     else:
@@ -297,7 +287,6 @@ class FEM2DSolver:
 
         for idx in self.eqn.inner_boundary_element_indices:
             N_e = self.neumann_element_matrices(idx)
-
             global_indices = self.eqn.elements[idx]
 
             for i in range(9):
@@ -336,41 +325,25 @@ class FEM2DSolver:
         return u_real, u_imag
 
     def get_analytical_solution(self, x, y):
-        # Convert to polar coordinates
         r = np.sqrt(x**2 + y**2)
         theta = np.arctan2(y, x)
-
-        # Argument for Bessel/Hankel functions
         k = np.sqrt(self.k_squared)
-        kr = k * r
 
         # Compute the exact solution
         u_ex = complex(0.0, 0.0)
 
         # Evaluate Hankel functions at unit radius and at r
-        for n in range(-self.n_fourier, self.n_fourier + 1):
+        for m in range(-self.n_fourier, self.n_fourier + 1):
             # Hankel function at r
-            h_r = hankel1(n, kr)
-
-            # Bessel and Hankel functions at inner_radius
-            k_a = k * self.eqn.inner_radius
+            h_r = hankel1(m, k * r)
 
             # Derivatives
-            jp_a = k * jvp(n, k_a)
-            hp_a = k * h1vp(n, k_a)
+            jp_m = jvp(m, k * r)
+            hp_m = h1vp(m, k * r)
 
             # Contribution for positive n
-            u_ex += (
-                (self.eqn.i**n) * h_r * (jp_a / hp_a) * np.exp(self.eqn.i * n * theta)
+            u_ex -= (
+                (self.eqn.i**m) * h_r * (jp_m / hp_m) * np.exp(self.eqn.i * m * theta)
             )
-
-            # # Contribution for negative n (except n=0)
-            # if n > 0:
-            #     u_ex -= (
-            #         (self.eqn.i**n)
-            #         * h_r
-            #         * (jp_a / hp_a)
-            #         * np.exp(-self.eqn.i * n * theta)
-            #     )
 
         return u_ex
