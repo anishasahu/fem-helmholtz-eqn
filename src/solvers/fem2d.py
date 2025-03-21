@@ -11,7 +11,7 @@ class FEM2DSolver:
         self,
         eqn: "HelmHoltz",
         k_squared: float = 1.0,
-        n_fourier: int = 10,
+        n_fourier: int = 50,
         abc_order: int = 3,
     ):
         self.eqn = eqn
@@ -21,51 +21,27 @@ class FEM2DSolver:
 
     def get_shape_functions(self, xi, eta):
         # Shape functions for 9-node element
-        N = np.zeros(9)
-        dN_dxi = np.zeros(9)
-        dN_deta = np.zeros(9)
+        N = np.zeros(4)
+        dN_dxi = np.zeros(4)
+        dN_deta = np.zeros(4)
 
         # Corner nodes
-        N[0] = 0.25 * xi * eta * (xi - 1) * (eta - 1)
-        N[2] = 0.25 * xi * eta * (xi + 1) * (eta - 1)
-        N[4] = 0.25 * xi * eta * (xi + 1) * (eta + 1)
-        N[6] = 0.25 * xi * eta * (xi - 1) * (eta + 1)
-
-        # Mid-side nodes
-        N[1] = 0.5 * eta * (eta - 1) * (1 - xi**2)
-        N[3] = 0.5 * xi * (xi + 1) * (1 - eta**2)
-        N[5] = 0.5 * eta * (eta + 1) * (1 - xi**2)
-        N[7] = 0.5 * xi * (xi - 1) * (1 - eta**2)
-
-        # Center node
-        N[8] = (1 - xi**2) * (1 - eta**2)
+        N[0] = 0.25 * (1 - xi) * (1 - eta)
+        N[1] = 0.25 * (1 + xi) * (1 - eta)
+        N[2] = 0.25 * (1 + xi) * (1 + eta)
+        N[3] = 0.25 * (1 - xi) * (1 + eta)
 
         # Derivatives of shape functions
         # Corner nodes
-        dN_dxi[0] = 0.25 * eta * (eta - 1) * (2 * xi - 1)
-        dN_dxi[2] = 0.25 * eta * (eta - 1) * (2 * xi + 1)
-        dN_dxi[4] = 0.25 * eta * (eta + 1) * (2 * xi + 1)
-        dN_dxi[6] = 0.25 * eta * (eta + 1) * (2 * xi - 1)
+        dN_dxi[0] = -0.25 * (1 - eta)
+        dN_dxi[1] = 0.25 * (1 - eta)
+        dN_dxi[2] = 0.25 * (1 + eta)
+        dN_dxi[3] = -0.25 * (1 + eta)
 
-        dN_deta[0] = 0.25 * xi * (xi - 1) * (2 * eta - 1)
-        dN_deta[2] = 0.25 * xi * (xi + 1) * (2 * eta - 1)
-        dN_deta[4] = 0.25 * xi * (xi + 1) * (2 * eta + 1)
-        dN_deta[6] = 0.25 * xi * (xi - 1) * (2 * eta + 1)
-
-        # Mid-side nodes
-        dN_dxi[1] = -xi * eta * (eta - 1)
-        dN_dxi[3] = 0.5 * (1 - eta**2) * (2 * xi + 1)
-        dN_dxi[5] = -xi * eta * (eta + 1)
-        dN_dxi[7] = 0.5 * (1 - eta**2) * (2 * xi - 1)
-
-        dN_deta[1] = 0.5 * (1 - xi**2) * (2 * eta - 1)
-        dN_deta[3] = -eta * xi * (xi + 1)
-        dN_deta[5] = 0.5 * (1 - xi**2) * (2 * eta + 1)
-        dN_deta[7] = -eta * xi * (xi - 1)
-
-        # Center node
-        dN_dxi[8] = -2 * xi * (1 - eta**2)
-        dN_deta[8] = -2 * eta * (1 - xi**2)
+        dN_deta[0] = -0.25 * (1 - xi)
+        dN_deta[1] = -0.25 * (1 + xi)
+        dN_deta[2] = 0.25 * (1 + xi)
+        dN_deta[3] = 0.25 * (1 - xi)
 
         return N, dN_dxi, dN_deta
 
@@ -73,10 +49,10 @@ class FEM2DSolver:
         element_nodes = self.eqn.elements[idx]
         node_coords = self.eqn.nodes[element_nodes]
 
-        K_e = np.zeros((9, 9), dtype=complex)
-        F_e = np.zeros(9, dtype=complex)
+        K_e = np.zeros((4, 4), dtype=complex)
+        F_e = np.zeros(4, dtype=complex)
 
-        gauss_points, gauss_weights = roots_legendre(3)
+        gauss_points, gauss_weights = roots_legendre(2)
 
         for i, xi in enumerate(gauss_points):
             for j, eta in enumerate(gauss_points):
@@ -85,7 +61,7 @@ class FEM2DSolver:
 
                 # Jacobian matrix
                 J = np.zeros((2, 2))
-                for k in range(9):
+                for k in range(4):
                     J[0, 0] += dN_dxi[k] * node_coords[k, 0]
                     J[0, 1] += dN_dxi[k] * node_coords[k, 1]
                     J[1, 0] += dN_deta[k] * node_coords[k, 0]
@@ -98,10 +74,10 @@ class FEM2DSolver:
                 Jinv = np.array([[J[1, 1], -J[0, 1]], [-J[1, 0], J[0, 0]]]) / detJ
 
                 # Derivatives of shape functions with respect to x and y
-                dN_dx = np.zeros(9)
-                dN_dy = np.zeros(9)
+                dN_dx = np.zeros(4)
+                dN_dy = np.zeros(4)
 
-                for k in range(9):
+                for k in range(4):
                     dN_dx[k] = Jinv[0, 0] * dN_dxi[k] + Jinv[0, 1] * dN_deta[k]
                     dN_dy[k] = Jinv[1, 0] * dN_dxi[k] + Jinv[1, 1] * dN_deta[k]
 
@@ -109,8 +85,8 @@ class FEM2DSolver:
                 weight = gauss_weights[i] * gauss_weights[j] * detJ
 
                 # Add contribution to element matrices
-                for m in range(9):
-                    for n in range(9):
+                for m in range(4):
+                    for n in range(4):
                         # Stiffness matrix: (∇φm·∇φn - k²φmφn)
                         K_e[m, n] += weight * (
                             -(dN_dx[m] * dN_dx[n] + dN_dy[m] * dN_dy[n])
@@ -132,7 +108,7 @@ class FEM2DSolver:
             jnp = jvp(m, k * r)
 
             # Contribution for positive n
-            flux += (self.eqn.i**m) * k * np.exp(self.eqn.i * m * theta) * jnp
+            flux += (self.eqn.i**m) * k * jnp * np.exp(self.eqn.i * m * theta)
 
         return flux
 
@@ -162,7 +138,7 @@ class FEM2DSolver:
                             - self.eqn.i / (8.0 * k * self.eqn.outer_radius**2)
                         )
         else:
-            raise ValueError("Invalid order for ABC condition")
+            raise ValueError("Invalid order for ABC condition. Enter 1, 2 or 3.")
 
         return coef
 
@@ -170,55 +146,87 @@ class FEM2DSolver:
         element = self.eqn.elements[idx]
         node_coords = self.eqn.nodes[element]
 
-        S_e = np.zeros((9, 9), dtype=complex)
-        gauss_points, gauss_weights = roots_legendre(3)
+        S_e = np.zeros((4, 4), dtype=complex)
+        gauss_points, gauss_weights = roots_legendre(2)
 
-        for i, xi in enumerate(gauss_points):
-            for j, eta in enumerate(gauss_points):
-                # Shape functions and derivatives at this Gauss point
+        # Define the edges of the 4-node element
+        edges = [
+            (0, 1),  # Bottom edge (xi varies, eta = -1)
+            (1, 2),  # Right edge (xi = 1, eta varies)
+            (2, 3),  # Top edge (xi varies, eta = 1)
+            (3, 0),  # Left edge (xi = -1, eta varies)
+        ]
+
+        # Check each edge to see if it lies on the outer boundary
+        for edge in edges:
+            # Check if both nodes in this edge are on the outer boundary
+            if not (
+                np.isclose(np.linalg.norm(node_coords[edge[0]]), self.eqn.outer_radius)
+                and np.isclose(
+                    np.linalg.norm(node_coords[edge[1]]), self.eqn.outer_radius
+                )
+            ):
+                continue
+
+            # This edge is on the outer boundary, perform line integration
+            for i, s in enumerate(gauss_points):
+                # Map the 1D Gauss point to the correct position on this edge
+                if edge == (0, 1):  # Bottom edge
+                    # xi varies from -1 to 1, eta = -1
+                    xi = s
+                    eta = -1
+                elif edge == (1, 2):  # Right edge
+                    # xi = 1, eta varies from -1 to 1
+                    xi = 1
+                    eta = s
+                elif edge == (2, 3):  # Top edge
+                    # xi varies from 1 to -1, eta = 1
+                    xi = s
+                    eta = 1
+                elif edge == (3, 0):  # Left edge
+                    # xi = -1, eta varies from 1 to -1
+                    xi = -1
+                    eta = s
+
+                # Calculate shape functions at this point
                 N, dN_dxi, dN_deta = self.get_shape_functions(xi, eta)
 
                 # Jacobian matrix
                 J = np.zeros((2, 2))
-                for k in range(9):
-                    J[0, 0] += dN_dxi[k] * node_coords[k, 0]
-                    J[0, 1] += dN_dxi[k] * node_coords[k, 1]
-                    J[1, 0] += dN_deta[k] * node_coords[k, 0]
-                    J[1, 1] += dN_deta[k] * node_coords[k, 1]
+                for m in range(4):
+                    J[0, 0] += dN_dxi[m] * node_coords[m, 0]
+                    J[0, 1] += dN_dxi[m] * node_coords[m, 1]
+                    J[1, 0] += dN_deta[m] * node_coords[m, 0]
+                    J[1, 1] += dN_deta[m] * node_coords[m, 1]
 
-                # Determinant of Jacobian
-                detJ = J[0, 0] * J[1, 1] - J[0, 1] * J[1, 0]
+                # Calculate differential length along the edge
+                if edge == (0, 1) or edge == (2, 3):  # Horizontal edges
+                    ds = np.sqrt(J[0, 0] ** 2 + J[0, 1] ** 2)
+                else:  # Vertical edges
+                    ds = np.sqrt(J[1, 0] ** 2 + J[1, 1] ** 2)
 
-                # Inverse of Jacobian_inner
-                Jinv = (
-                    np.array(
-                        [
-                            [J[1, 1], -J[0, 1]],
-                            [-J[1, 0], J[0, 0]],
-                        ]
-                    )
-                    / detJ
-                )
+                # # Current position
+                # current_pos = np.zeros(2)
+                # for m in range(4):
+                #     current_pos[0] += N[m] * node_coords[m, 0]
+                #     current_pos[1] += N[m] * node_coords[m, 1]
+                
+                # x, y = current_pos
 
-                # Derivatives of shape functions with respect to x and y
-                dN_dx = np.zeros(9)
-                dN_dy = np.zeros(9)
-
-                for k in range(9):
-                    dN_dx[k] = Jinv[0, 0] * dN_dxi[k] + Jinv[0, 1] * dN_deta[k]
-                    dN_dy[k] = Jinv[1, 0] * dN_dxi[k] + Jinv[1, 1] * dN_deta[k]
+                # Sommerfeld coefficient (typically i*k for 2D Helmholtz)
+                sommerfeld_coef = 1j * np.sqrt(self.k_squared)
 
                 # Weight for this Gauss point
-                weight = gauss_weights[i] * gauss_weights[j] * detJ
-                coef = self.abc_condition(order=self.abc_order)
+                weight = gauss_weights[i]
 
-                for m in range(9):
-                    for n in range(9):
-                        if (
-                            np.linalg.norm(node_coords[m]) == self.eqn.outer_radius
-                            and np.linalg.norm(node_coords[n]) == self.eqn.outer_radius
-                        ):
-                            S_e[m, n] += weight * coef * N[m] * N[n]
+                # Compute the Sommerfeld matrix for this point
+                for m in range(4):
+                    for n in range(4):
+                        if np.linalg.norm(node_coords[m]) == self.eqn.outer_radius and np.linalg.norm(node_coords[n]) == self.eqn.outer_radius:
+                        # Sommerfeld boundary matrix: ∫ N_m * N_n * (i*k) ds
+                            S_e[m, n] += N[m] * N[n] * sommerfeld_coef * ds * weight
+                        else: 
+                            continue
 
         return S_e
 
@@ -226,54 +234,88 @@ class FEM2DSolver:
         # Get element nodes and coordinates
         element = self.eqn.elements[idx]
         node_coords = self.eqn.nodes[element]
-        x, y = node_coords[:, 0], node_coords[:, 1]
 
-        N_e = np.zeros(9, dtype=complex)
-        gauss_points, gauss_weights = roots_legendre(3)
+        # Initialize element contribution vector
+        N_e = np.zeros(4, dtype=complex)
 
-        for i, xi in enumerate(gauss_points):
-            for j, eta in enumerate(gauss_points):
-                # Shape functions and derivatives at this Gauss point
+        # Define the edges of the 4-node element
+        edges = [
+            (0, 1),  # Bottom edge (xi varies, eta = -1)
+            (1, 2),  # Right edge (xi = 1, eta varies)
+            (2, 3),  # Top edge (xi varies, eta = 1)
+            (3, 0),  # Left edge (xi = -1, eta varies)
+        ]
+
+        # 1D Gauss quadrature points and weights
+        gauss_points, gauss_weights = roots_legendre(2)
+
+        # Check each edge to see if it lies on the inner boundary
+        for edge in edges:
+            # Check if both nodes in this edge are on the inner boundary
+            if not (
+                np.isclose(np.linalg.norm(node_coords[edge[0]]), self.eqn.inner_radius)
+                and np.isclose(
+                    np.linalg.norm(node_coords[edge[1]]), self.eqn.inner_radius
+                )
+            ):
+                continue
+
+            # This edge is on the inner boundary, perform line integration
+            for i, s in enumerate(gauss_points):
+                # Parameter s goes from -1 to 1 along the edge
+                # Map the Gauss point to the correct position on this edge
+                if edge == (0, 1):  # Bottom edge
+                    # xi varies from -1 to 1, eta = -1
+                    xi = s
+                    eta = -1
+                elif edge == (1, 2):  # Right edge
+                    # xi = 1, eta varies from -1 to 1
+                    xi = 1
+                    eta = s
+                elif edge == (2, 3):  # Top edge
+                    # xi varies from 1 to -1, eta = 1
+                    xi = s
+                    eta = 1
+                elif edge == (3, 0):  # Left edge
+                    # xi = -1, eta varies from 1 to -1
+                    xi = -1
+                    eta = s
+
+                # Calculate shape functions and derivatives at this point
                 N, dN_dxi, dN_deta = self.get_shape_functions(xi, eta)
 
                 # Jacobian matrix
                 J = np.zeros((2, 2))
-                for k in range(9):
+                for k in range(4):
                     J[0, 0] += dN_dxi[k] * node_coords[k, 0]
                     J[0, 1] += dN_dxi[k] * node_coords[k, 1]
                     J[1, 0] += dN_deta[k] * node_coords[k, 0]
                     J[1, 1] += dN_deta[k] * node_coords[k, 1]
 
-                # Determinant of Jacobian
-                detJ = J[0, 0] * J[1, 1] - J[0, 1] * J[1, 0]
+                # Calculate differential length along the edge
+                if edge == (0, 1) or edge == (2, 3):  # Horizontal edges
+                    ds = np.sqrt(J[0, 0] ** 2 + J[0, 1] ** 2)
+                else:  # Vertical edges
+                    ds = np.sqrt(J[1, 0] ** 2 + J[1, 1] ** 2)
 
-                # Inverse of Jacobian_inner
-                Jinv = (
-                    np.array(
-                        [
-                            [J[1, 1], -J[0, 1]],
-                            [-J[1, 0], J[0, 0]],
-                        ]
-                    )
-                    / detJ
-                )
+                # Current position
+                current_pos = np.zeros(2)
+                for k in range(4):
+                    current_pos[0] += N[k] * node_coords[k, 0]
+                    current_pos[1] += N[k] * node_coords[k, 1]
 
-                # Derivatives of shape functions with respect to x and y
-                dN_dx = np.zeros(9)
-                dN_dy = np.zeros(9)
-
-                for k in range(9):
-                    dN_dx[k] = Jinv[0, 0] * dN_dxi[k] + Jinv[0, 1] * dN_deta[k]
-                    dN_dy[k] = Jinv[1, 0] * dN_dxi[k] + Jinv[1, 1] * dN_deta[k]
+                x, y = current_pos
+                
+                # Get the normal derivative using the function
+                normal_derivative = self.get_normal_derivative(x, y)
 
                 # Weight for this Gauss point
-                weight = gauss_weights[i] * gauss_weights[j] * detJ
+                weight = gauss_weights[i]
 
-                for m in range(9):
-                    if np.linalg.norm(node_coords[m]) == self.eqn.inner_radius:
-                        N_e[m] += weight * N[m] * self.get_normal_derivative(x[m], y[m])
-                    else:
-                        continue
+                # Add contribution to element vector
+                for m in range(4):
+                    N_e[m] += N[m] * normal_derivative * ds * weight
+
         return N_e
 
     def assemble(self) -> None:
@@ -286,23 +328,23 @@ class FEM2DSolver:
             N_e = self.neumann_element_matrices(idx)
             global_indices = self.eqn.elements[idx]
 
-            for i in range(9):
+            for i in range(4):
                 self.N[global_indices[i]] += N_e[i]
 
         for idx in self.eqn.outer_boundary_element_indices:
             S_e = self.sommerfeld_element_matrices(idx)
             global_indices = self.eqn.elements[idx]
 
-            for i in range(9):
-                for j in range(9):
+            for i in range(4):
+                for j in range(4):
                     self.S[global_indices[i], global_indices[j]] += S_e[i, j]
 
         for idx in range(self.eqn.n_elements):
             K_e, F_e = self.get_element_matrices(idx)
             global_indices = self.eqn.elements[idx]
 
-            for i in range(9):
-                for j in range(9):
+            for i in range(4):
+                for j in range(4):
                     self.K[global_indices[i], global_indices[j]] += K_e[i, j]
 
                 self.F[global_indices[i]] += F_e[i]
