@@ -2,56 +2,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-
-# def plot_comparison(solver, u_real, u_imag, grid_points=50, fig_size=(18, 6)):
-#     theta = np.linspace(0, 2 * np.pi, grid_points)
-#     r = np.linspace(solver.eqn.inner_radius, solver.eqn.outer_radius, grid_points)
-
-#     # Create meshgrid for polar coordinates
-#     r_grid, theta_grid = np.meshgrid(r, theta)
-
-#     # Convert to Cartesian coordinates
-#     x_grid = r_grid * np.cos(theta_grid)
-#     y_grid = r_grid * np.sin(theta_grid)
-
-#     # Calculate exact solution on the grid
-#     u_exact = np.zeros((grid_points, grid_points), dtype=complex)
-#     for i in range(grid_points):
-#         for j in range(grid_points):
-#             u_exact[i, j] = solver.get_analytical_solution(x_grid[i, j], y_grid[i, j])
-
-#     # Compute magnitude of exact solution
-#     map_exact = np.sqrt(np.real(u_exact) ** 2 + np.imag(u_exact) ** 2)
-
-#     # Create plots
-#     fig, axes = plt.subplots(1, 2, figsize=fig_size, subplot_kw={"projection": "3d"})
-
-#     for element in solver.eqn.elements:
-#         x = solver.eqn.nodes[element, 0]
-#         y = solver.eqn.nodes[element, 1]
-#         u_mag = np.sqrt(u_real**2 + u_imag**2)
-#         z = u_mag[element]
-#         verts = [list(zip(x, y, z))]
-#         poly = Poly3DCollection(verts, alpha=0.6, color="green")
-#         axes[0].add_collection3d(poly)
-
-#     # Plot exact solution
-#     axes[1].plot_surface(
-#         x_grid,
-#         y_grid,
-#         map_exact,
-#         color="red",
-#         edgecolor="none",
-#         alpha=0.9,
-#     )
-#     axes[1].set_title("Analytical Solution")
-#     axes[1].set_xlabel("X")
-#     axes[1].set_ylabel("Y")
-#     axes[1].set_zlabel("|u|")
-
-#     plt.tight_layout()
-
-#     return fig
 def plot_comparison(solver, u_real, u_imag, grid_points=50, fig_size=(12, 8)):
     theta = np.linspace(0, 2 * np.pi, grid_points)
     r = np.linspace(solver.eqn.inner_radius, solver.eqn.outer_radius, grid_points)
@@ -85,17 +35,6 @@ def plot_comparison(solver, u_real, u_imag, grid_points=50, fig_size=(12, 8)):
         verts = [list(zip(x, y, z))]
         poly = Poly3DCollection(verts, alpha=0.6, color="green", label="Numerical")
         ax.add_collection3d(poly)
-    
-    # Plot exact solution (red)
-    surf = ax.plot_surface(
-        x_grid,
-        y_grid,
-        map_exact,
-        color="red",
-        edgecolor="none",
-        alpha=0.5,
-        label="Analytical"
-    )
     
     # Create a custom legend
     numerical_patch = plt.Rectangle((0, 0), 1, 1, color="green", alpha=0.6)
