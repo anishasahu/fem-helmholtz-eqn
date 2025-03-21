@@ -35,6 +35,17 @@ def plot_comparison(solver, u_real, u_imag, grid_points=50, fig_size=(12, 8)):
         verts = [list(zip(x, y, z))]
         poly = Poly3DCollection(verts, alpha=0.6, color="green", label="Numerical")
         ax.add_collection3d(poly)
+
+    # Plot exact solution (red)
+    surf = ax.plot_surface(
+        x_grid,
+        y_grid,
+        map_exact,
+        color="red",
+        edgecolor="none",
+        alpha=0.5,
+        label="Analytical"
+    )
     
     # Create a custom legend
     numerical_patch = plt.Rectangle((0, 0), 1, 1, color="green", alpha=0.6)

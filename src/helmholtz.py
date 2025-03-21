@@ -7,10 +7,10 @@ class HelmHoltz:
         self,
         inner_radius=1.0,
         outer_radius=1.5,
-        n_theta=15,
+        n_theta=10,
         n_r=5,
         use_dtn_bc=True,
-        abc_order=3,
+        abc_order=1,
     ):
         # Global parameters
         self.inner_radius = inner_radius

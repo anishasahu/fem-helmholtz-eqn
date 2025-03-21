@@ -11,8 +11,8 @@ class FEM2DSolver:
         self,
         eqn: "HelmHoltz",
         k_squared: float = 1.0,
-        n_fourier: int = 50,
-        abc_order: int = 3,
+        n_fourier: int = 10,
+        abc_order: int = 1,
     ):
         self.eqn = eqn
         self.k_squared = k_squared
@@ -52,7 +52,7 @@ class FEM2DSolver:
         K_e = np.zeros((4, 4), dtype=complex)
         F_e = np.zeros(4, dtype=complex)
 
-        gauss_points, gauss_weights = roots_legendre(2)
+        gauss_points, gauss_weights = roots_legendre(4)
 
         for i, xi in enumerate(gauss_points):
             for j, eta in enumerate(gauss_points):
@@ -82,13 +82,13 @@ class FEM2DSolver:
                     dN_dy[k] = Jinv[1, 0] * dN_dxi[k] + Jinv[1, 1] * dN_deta[k]
 
                 # Weight for this Gauss point
-                weight = gauss_weights[i] * gauss_weights[j] * detJ
+                weight = gauss_weights[i] * gauss_weights[j]
 
                 # Add contribution to element matrices
                 for m in range(4):
                     for n in range(4):
                         # Stiffness matrix: (∇φm·∇φn - k²φmφn)
-                        K_e[m, n] += weight * (
+                        K_e[m, n] += weight * detJ * (
                             -(dN_dx[m] * dN_dx[n] + dN_dy[m] * dN_dy[n])
                             + self.k_squared * N[m] * N[n]
                         )
@@ -100,17 +100,17 @@ class FEM2DSolver:
         theta = np.arctan2(y, x)
         k = np.sqrt(self.k_squared)
 
-        # Initialize flux
-        flux = complex(0.0, 0.0)
+        # Initialize normal derivative
+        normal_derivative = complex(0.0, 0.0)
 
         for m in range(-self.n_fourier, self.n_fourier + 1):
             # Derivative of Bessel function
             jnp = jvp(m, k * r)
 
-            # Contribution for positive n
-            flux += (self.eqn.i**m) * k * jnp * np.exp(self.eqn.i * m * theta)
+            # Contribution for n
+            normal_derivative += (self.eqn.i**m) * k * jnp * np.exp(self.eqn.i * m * theta)
 
-        return flux
+        return normal_derivative
 
     def abc_condition(self, order: int):
         k = np.sqrt(self.k_squared)
@@ -147,7 +147,7 @@ class FEM2DSolver:
         node_coords = self.eqn.nodes[element]
 
         S_e = np.zeros((4, 4), dtype=complex)
-        gauss_points, gauss_weights = roots_legendre(2)
+        gauss_points, gauss_weights = roots_legendre(4)
 
         # Define the edges of the 4-node element
         edges = [
@@ -201,20 +201,12 @@ class FEM2DSolver:
 
                 # Calculate differential length along the edge
                 if edge == (0, 1) or edge == (2, 3):  # Horizontal edges
-                    ds = np.sqrt(J[0, 0] ** 2 + J[0, 1] ** 2)
+                    ds = np.sqrt(J[0, 0] ** 2 + J[0, 1] ** 2) #√[(∂x/∂ξ)² + (∂y/∂ξ)²]
                 else:  # Vertical edges
-                    ds = np.sqrt(J[1, 0] ** 2 + J[1, 1] ** 2)
-
-                # # Current position
-                # current_pos = np.zeros(2)
-                # for m in range(4):
-                #     current_pos[0] += N[m] * node_coords[m, 0]
-                #     current_pos[1] += N[m] * node_coords[m, 1]
-                
-                # x, y = current_pos
+                    ds = np.sqrt(J[1, 0] ** 2 + J[1, 1] ** 2) #√[(∂x/∂η)² + (∂y/∂η)²]
 
                 # Sommerfeld coefficient (typically i*k for 2D Helmholtz)
-                sommerfeld_coef = 1j * np.sqrt(self.k_squared)
+                sommerfeld_coef = self.abc_condition(self.abc_order)
 
                 # Weight for this Gauss point
                 weight = gauss_weights[i]
@@ -222,11 +214,8 @@ class FEM2DSolver:
                 # Compute the Sommerfeld matrix for this point
                 for m in range(4):
                     for n in range(4):
-                        if np.linalg.norm(node_coords[m]) == self.eqn.outer_radius and np.linalg.norm(node_coords[n]) == self.eqn.outer_radius:
-                        # Sommerfeld boundary matrix: ∫ N_m * N_n * (i*k) ds
-                            S_e[m, n] += N[m] * N[n] * sommerfeld_coef * ds * weight
-                        else: 
-                            continue
+                        S_e[m, n] += N[m] * N[n] * sommerfeld_coef * ds * weight
+
 
         return S_e
 
@@ -247,7 +236,7 @@ class FEM2DSolver:
         ]
 
         # 1D Gauss quadrature points and weights
-        gauss_points, gauss_weights = roots_legendre(2)
+        gauss_points, gauss_weights = roots_legendre(4)
 
         # Check each edge to see if it lies on the inner boundary
         for edge in edges:
@@ -294,15 +283,15 @@ class FEM2DSolver:
 
                 # Calculate differential length along the edge
                 if edge == (0, 1) or edge == (2, 3):  # Horizontal edges
-                    ds = np.sqrt(J[0, 0] ** 2 + J[0, 1] ** 2)
+                    ds = np.sqrt(J[0, 0] ** 2 + J[0, 1] ** 2) #√[(∂x/∂ξ)² + (∂y/∂ξ)²]
                 else:  # Vertical edges
-                    ds = np.sqrt(J[1, 0] ** 2 + J[1, 1] ** 2)
+                    ds = np.sqrt(J[1, 0] ** 2 + J[1, 1] ** 2) #√[(∂x/∂η)² + (∂y/∂η)²]
 
                 # Current position
                 current_pos = np.zeros(2)
                 for k in range(4):
-                    current_pos[0] += N[k] * node_coords[k, 0]
-                    current_pos[1] += N[k] * node_coords[k, 1]
+                    current_pos[0] += N[k] * node_coords[k, 0] 
+                    current_pos[1] += N[k] * node_coords[k, 1] 
 
                 x, y = current_pos
                 
