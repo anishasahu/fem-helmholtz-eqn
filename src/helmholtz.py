@@ -9,13 +9,11 @@ class HelmHoltz:
         outer_radius=1.5,
         n_theta=10,
         n_r=5,
-        use_dtn_bc=True,
         abc_order=1,
     ):
         # Global parameters
         self.inner_radius = inner_radius
         self.outer_radius = outer_radius
-        self.use_dtn_bc = use_dtn_bc
         self.abc_order = abc_order
 
         # Mesh parameters
