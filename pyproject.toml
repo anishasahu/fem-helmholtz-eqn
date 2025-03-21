@@ -5,6 +5,7 @@ description = "Finite Element Methods for the Helmholtz Equation"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "gmsh>=4.13.1",
     "jupyter>=1.1.1",
     "matplotlib>=3.10.1",
     "numpy>=2.2.4",
