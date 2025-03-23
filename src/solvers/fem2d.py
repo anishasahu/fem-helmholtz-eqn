@@ -20,19 +20,18 @@ class FEM2DSolver:
         self.abc_order = abc_order
 
     def get_shape_functions(self, xi, eta):
-        # Shape functions for 9-node element
+        # Shape functions for 4-node element
         N = np.zeros(4)
         dN_dxi = np.zeros(4)
         dN_deta = np.zeros(4)
-
-        # Corner nodes
+        
+        # Shape functions
         N[0] = 0.25 * (1 - xi) * (1 - eta)
         N[1] = 0.25 * (1 + xi) * (1 - eta)
         N[2] = 0.25 * (1 + xi) * (1 + eta)
         N[3] = 0.25 * (1 - xi) * (1 + eta)
 
         # Derivatives of shape functions
-        # Corner nodes
         dN_dxi[0] = -0.25 * (1 - eta)
         dN_dxi[1] = 0.25 * (1 - eta)
         dN_dxi[2] = 0.25 * (1 + eta)
