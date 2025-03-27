@@ -1,17 +1,17 @@
 from typing import Tuple
 
 import numpy as np
-from scipy.special import h1vp, hankel1, jvp, roots_legendre
+from scipy.special import j0, y0, roots_legendre
 
 # import matplotlib.pyplot as plt
 from src.helmholtz import HelmHoltz
 
 
-class FEM2DSolver:
+class FEM2DDirichletSommerfeldSolver:
     def __init__(
         self,
         eqn: "HelmHoltz",
-        k_squared: float = 1.0,
+        k_squared: float = 0.367,
         n_fourier: int = 50,
         abc_order: int = 1,
         inner_radius: float = 1.0,
@@ -111,22 +111,17 @@ class FEM2DSolver:
 
         return K_e, F_e
 
-    def get_normal_derivative(self, x, y) -> complex:
-        r = np.sqrt(x**2 + y**2)
-        theta = np.arctan2(y, x)
-        k = np.sqrt(self.k_squared)
+    def apply_boundary_conditions(self, A, b, tol: float = 1e-10):
+        r = np.linalg.norm(self.eqn.nodes, axis=1)
+        inner_nodes = np.abs(r - self.inner_radius) < tol
 
-        # Initialize normal derivative
-        normal_derivative = complex(0.0, 0.0)
+        # Apply Dirichlet conditions
+        # u(r=1) = 0
+        A[inner_nodes] = 0
+        A[inner_nodes, inner_nodes] = 1
+        b[inner_nodes] = 0
 
-        for m in range(-self.n_fourier, self.n_fourier + 1):
-            # Derivative of Bessel function
-            jnp = jvp(m, k * r)
-
-            # Contribution for n
-            normal_derivative += (1j**m) * k * jnp * np.exp(1j * m * theta)
-
-        return normal_derivative
+        return A, b
 
     def abc_condition(self, order: int):
         k = np.sqrt(self.k_squared)
@@ -208,81 +203,12 @@ class FEM2DSolver:
                         )
 
         return S_e
-
-    def neumann_element_matrices(self, idx):
-        # Get element nodes and coordinates
-        element = self.eqn.elements[idx]
-        node_coords = self.eqn.nodes[element]
-
-        # Initialize element contribution vector
-        N_e = np.zeros(4, dtype=complex)
-
-        # Define the edges of the 4-node element
-        edges = [
-            (0, 1),  # Bottom edge (xi varies, eta = -1)
-            (1, 2),  # Right edge (xi = 1, eta varies)
-            (2, 3),  # Top edge (xi varies, eta = 1)
-            (3, 0),  # Left edge (xi = -1, eta varies)
-        ]
-
-        # 1D Gauss quadrature points and weights
-        gauss_points, gauss_weights = roots_legendre(2)
-
-        # Check each edge to see if it lies on the inner boundary
-        for edge in edges:
-            # Check if both nodes in this edge are on the inner boundary
-            if not (
-                np.isclose(np.linalg.norm(node_coords[edge[0]]), self.eqn.inner_radius)
-                and np.isclose(
-                    np.linalg.norm(node_coords[edge[1]]), self.eqn.inner_radius
-                )
-            ):
-                continue
-
-            edge_length = np.sqrt(
-                (node_coords[edge[1], 0] - node_coords[edge[0], 0]) ** 2
-                + (node_coords[edge[1], 1] - node_coords[edge[0], 1]) ** 2
-            )
-
-            # This edge is on the inner boundary, perform line integration
-            for i, xi in enumerate(gauss_points):
-                N = self.get_shape_fuctions_1d(xi)
-
-                ds = edge_length / 2
-
-                # # Current position
-                current_pos = np.zeros(2)
-                for k in range(2):  # 2 nodes per edge
-                    current_pos[0] += N[k] * node_coords[edge[k], 0]
-                    current_pos[1] += N[k] * node_coords[edge[k], 1]
-                x, y = current_pos
-
-                # Get the normal derivative using the function
-                normal_derivative = self.get_normal_derivative(x, y)
-
-                # Weight for this Gauss point
-                weight = gauss_weights[i]
-
-                # Add contribution to element vector
-                for local_m in range(2):  # Only iterate over 1D shape functions
-                    global_m = edge[local_m]  # Map to the correct global node index
-                    N_e[global_m] += N[local_m] * normal_derivative * ds * weight
-
-        return N_e
-
+            
     def assemble(self) -> None:
         self.K = np.zeros((self.eqn.n_nodes, self.eqn.n_nodes), dtype=complex)
         self.F = np.zeros(self.eqn.n_nodes, dtype=complex)
         self.S = np.zeros((self.eqn.n_nodes, self.eqn.n_nodes), dtype=complex)
-        self.N = np.zeros(self.eqn.n_nodes, dtype=complex)
-
-        for idx in self.eqn.inner_boundary_element_indices:
-            N_e = self.neumann_element_matrices(idx)
-            global_indices = self.eqn.elements[idx]
-
-            for i in range(4):
-                self.N[global_indices[i]] += N_e[i]
-
+        
         for idx in self.eqn.outer_boundary_element_indices:
             S_e = self.sommerfeld_element_matrices(idx)
             global_indices = self.eqn.elements[idx]
@@ -300,38 +226,37 @@ class FEM2DSolver:
                     self.K[global_indices[i], global_indices[j]] += K_e[i, j]
 
                 self.F[global_indices[i]] += F_e[i]
-
-        self.K = self.K + self.S
-        self.F = self.F + self.N
+        
+        self.K += self.S
 
     def solve(self) -> Tuple[np.ndarray, np.ndarray]:
         self.assemble()
 
+        self.K, self.F = self.apply_boundary_conditions(self.K, self.F)
         u_complex = np.linalg.solve(self.K, self.F)
-
         u_real = np.real(u_complex)
         u_imag = np.imag(u_complex)
 
         return u_real, u_imag
 
     def get_analytical_solution(self, x, y):
-        r = np.sqrt(x**2 + y**2)
-        theta = np.arctan2(y, x)
-        k = np.sqrt(self.k_squared)
+        r = np.sqrt(x ** 2 + y ** 2)
 
-        # Compute the exact solution
-        u_ex = 0 + 0j
+        # Boundary conditions: u(inner_radius) = 0, u(outer_radius) = 1
+        u1 = 0
+        u2 = 1
 
-        # Evaluate Hankel functions at unit radius and at r
-        for m in range(-self.n_fourier, self.n_fourier + 1):
-            # Hankel function at r
-            h_r = hankel1(m, k * r)
+        # Construct the coefficient matrix using Bessel functions
+        matrix = np.array([
+            [j0(self.k_squared * self.inner_radius), y0(self.k_squared * self.inner_radius)],  # Inner boundary condition
+            [j0(self.k_squared * self.outer_radius), y0(self.k_squared * self.outer_radius)]   # Outer boundary condition
+        ])
 
-            # Derivatives
-            jp_m = jvp(m, k)
-            hp_m = h1vp(m, k)
+        # Right-hand side vector for boundary conditions
+        rhs = np.array([u1, u2])
 
-            # Contribution for positive n
-            u_ex -= (1j**m) * h_r * (jp_m / hp_m) * np.exp(1j * m * theta)
+        # Solve the system of equations to find coefficients A and B
+        A, B = np.linalg.solve(matrix, rhs)
 
-        return u_ex
+        # Compute and return the analytical solution at all node positions
+        return A * j0(self.k_squared * r) + B * y0(self.k_squared * r)

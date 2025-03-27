@@ -1,13 +1,13 @@
 from typing import Tuple
 
 import numpy as np
-from scipy.special import h1vp, hankel1, jvp, roots_legendre
+from scipy.special import jv, jvp, roots_legendre, yv, yvp
 
 # import matplotlib.pyplot as plt
 from src.helmholtz import HelmHoltz
 
 
-class FEM2DSolver:
+class FEM2DNeumannDirichletSolver:
     def __init__(
         self,
         eqn: "HelmHoltz",
@@ -128,87 +128,6 @@ class FEM2DSolver:
 
         return normal_derivative
 
-    def abc_condition(self, order: int):
-        k = np.sqrt(self.k_squared)
-
-        # set default value
-        coef = 1j * k
-
-        if order == 1:
-            coef = 1j * k
-        elif order == 2:
-            coef = -1j * k - 1.0 / (2.0 * self.eqn.outer_radius)
-        elif order == 3:
-            for i, ith_node in enumerate(self.eqn.outer_boundary_node_indices):
-                theta_i = np.arctan2(
-                    self.eqn.nodes[ith_node, 1], self.eqn.nodes[ith_node, 0]
-                )
-                for j, jth_node in enumerate(self.eqn.outer_boundary_node_indices):
-                    theta_j = np.arctan2(
-                        self.eqn.nodes[jth_node, 1], self.eqn.nodes[jth_node, 0]
-                    )
-                    if abs(theta_i - theta_j) < 0.5:
-                        coef = (
-                            -1j * k
-                            - 1.0 / (2.0 * self.eqn.outer_radius)
-                            - 1j / (8.0 * k * self.eqn.outer_radius**2)
-                        )
-        else:
-            raise ValueError("Invalid order for ABC condition. Enter 1, 2 or 3.")
-
-        return coef
-
-    def sommerfeld_element_matrices(self, idx):
-        element = self.eqn.elements[idx]
-        node_coords = self.eqn.nodes[element]
-
-        S_e = np.zeros((4, 4), dtype=complex)
-        gauss_points, gauss_weights = roots_legendre(2)
-
-        # Define the edges of the 4-node element
-        edges = [
-            (0, 1),  # Bottom edge (xi varies, eta = -1)
-            (1, 2),  # Right edge (xi = 1, eta varies)
-            (2, 3),  # Top edge (xi varies, eta = 1)
-            (3, 0),  # Left edge (xi = -1, eta varies)
-        ]
-
-        # Check each edge to see if it lies on the outer boundary
-        for edge in edges:
-            # Check if both nodes in this edge are on the outer boundary
-            if not (
-                np.isclose(np.linalg.norm(node_coords[edge[0]]), self.eqn.outer_radius)
-                and np.isclose(
-                    np.linalg.norm(node_coords[edge[1]]), self.eqn.outer_radius
-                )
-            ):
-                continue
-
-            edge_length = np.linalg.norm(node_coords[edge[1]] - node_coords[edge[0]])
-
-            # This edge is on the outer boundary, perform line integration
-            for i, xi in enumerate(gauss_points):
-                N = self.get_shape_fuctions_1d(xi)
-
-                ds = edge_length / 2
-
-                # Sommerfeld coefficient (typically i*k for 2D Helmholtz)
-                sommerfeld_coef = self.abc_condition(self.abc_order)
-
-                # Weight for this Gauss point
-                weight = gauss_weights[i]
-
-                # Distribute the 1D shape functions into the full 4-node system
-                for local_m in range(2):  # Only iterate over 1D shape functions
-                    global_m = edge[local_m]  # Map to the correct global node index
-                    for local_n in range(2):
-                        global_n = edge[local_m]
-                        S_e[global_m, global_n] += (
-                            N[local_m] * N[local_n] * sommerfeld_coef * ds * weight
-                        )
-
-        return S_e
-
     def neumann_element_matrices(self, idx):
         # Get element nodes and coordinates
         element = self.eqn.elements[idx]
@@ -270,10 +189,21 @@ class FEM2DSolver:
 
         return N_e
 
+    def apply_boundary_conditions(self, A, b, tol: float = 1e-10):
+        r = np.linalg.norm(self.eqn.nodes, axis=1)
+        outer_nodes = np.abs(r - self.outer_radius) < tol
+
+        # Apply Dirichlet conditions in outer boundary
+        # u(r=2) = 0
+        A[outer_nodes] = 0
+        A[outer_nodes, outer_nodes] = 1
+        b[outer_nodes] = 0
+
+        return A, b
+
     def assemble(self) -> None:
         self.K = np.zeros((self.eqn.n_nodes, self.eqn.n_nodes), dtype=complex)
         self.F = np.zeros(self.eqn.n_nodes, dtype=complex)
-        self.S = np.zeros((self.eqn.n_nodes, self.eqn.n_nodes), dtype=complex)
         self.N = np.zeros(self.eqn.n_nodes, dtype=complex)
 
         for idx in self.eqn.inner_boundary_element_indices:
@@ -282,14 +212,6 @@ class FEM2DSolver:
 
             for i in range(4):
                 self.N[global_indices[i]] += N_e[i]
-
-        for idx in self.eqn.outer_boundary_element_indices:
-            S_e = self.sommerfeld_element_matrices(idx)
-            global_indices = self.eqn.elements[idx]
-
-            for i in range(4):
-                for j in range(4):
-                    self.S[global_indices[i], global_indices[j]] += S_e[i, j]
 
         for idx in range(self.eqn.n_elements):
             K_e, F_e = self.get_element_matrices(idx)
@@ -301,14 +223,13 @@ class FEM2DSolver:
 
                 self.F[global_indices[i]] += F_e[i]
 
-        self.K = self.K + self.S
-        self.F = self.F + self.N
+        self.F += self.N
 
     def solve(self) -> Tuple[np.ndarray, np.ndarray]:
         self.assemble()
 
+        self.K, self.F = self.apply_boundary_conditions(self.K, self.F)
         u_complex = np.linalg.solve(self.K, self.F)
-
         u_real = np.real(u_complex)
         u_imag = np.imag(u_complex)
 
@@ -322,16 +243,14 @@ class FEM2DSolver:
         # Compute the exact solution
         u_ex = 0 + 0j
 
-        # Evaluate Hankel functions at unit radius and at r
         for m in range(-self.n_fourier, self.n_fourier + 1):
-            # Hankel function at r
-            h_r = hankel1(m, k * r)
 
-            # Derivatives
-            jp_m = jvp(m, k)
-            hp_m = h1vp(m, k)
-
-            # Contribution for positive n
-            u_ex -= (1j**m) * h_r * (jp_m / hp_m) * np.exp(1j * m * theta)
+            u_ex += (
+                1j**m
+                * np.exp(1j * m * theta)
+                * jvp(m, k)
+                * (jv(m, self.outer_radius * k) * yv(m, k * r) - yv(m, self.outer_radius * k) * jv(m, k * r))
+                / (jvp(m, k) * yv(m, self.outer_radius * k) - yvp(m, k) * jv(m, self.outer_radius * k))
+            )
 
         return u_ex
