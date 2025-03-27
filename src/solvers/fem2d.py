@@ -3,6 +3,7 @@ from typing import Tuple
 import numpy as np
 from scipy.special import h1vp, hankel1, jvp, roots_legendre
 
+# import matplotlib.pyplot as plt
 from src.helmholtz import HelmHoltz
 
 
@@ -11,20 +12,24 @@ class FEM2DSolver:
         self,
         eqn: "HelmHoltz",
         k_squared: float = 1.0,
-        n_fourier: int = 10,
+        n_fourier: int = 50,
         abc_order: int = 1,
+        inner_radius: float = 1.0,
+        outer_radius: float = 1.5,
     ):
         self.eqn = eqn
         self.k_squared = k_squared
         self.n_fourier = n_fourier
         self.abc_order = abc_order
+        self.inner_radius = inner_radius
+        self.outer_radius = outer_radius
 
     def get_shape_functions(self, xi, eta):
         # Shape functions for 4-node element
         N = np.zeros(4)
         dN_dxi = np.zeros(4)
         dN_deta = np.zeros(4)
-        
+
         # Shape functions
         N[0] = 0.25 * (1 - xi) * (1 - eta)
         N[1] = 0.25 * (1 + xi) * (1 - eta)
@@ -44,6 +49,14 @@ class FEM2DSolver:
 
         return N, dN_dxi, dN_deta
 
+    def get_shape_fuctions_1d(self, xi):
+        N = np.zeros(2)
+
+        N[0] = 0.5 * (1 - xi)
+        N[1] = 0.5 * (1 + xi)
+
+        return N
+
     def get_element_matrices(self, idx) -> Tuple[np.ndarray, np.ndarray]:
         element_nodes = self.eqn.elements[idx]
         node_coords = self.eqn.nodes[element_nodes]
@@ -51,7 +64,7 @@ class FEM2DSolver:
         K_e = np.zeros((4, 4), dtype=complex)
         F_e = np.zeros(4, dtype=complex)
 
-        gauss_points, gauss_weights = roots_legendre(4)
+        gauss_points, gauss_weights = roots_legendre(2)
 
         for i, xi in enumerate(gauss_points):
             for j, eta in enumerate(gauss_points):
@@ -86,10 +99,14 @@ class FEM2DSolver:
                 # Add contribution to element matrices
                 for m in range(4):
                     for n in range(4):
-                        # Stiffness matrix: (∇φm·∇φn - k²φmφn)
-                        K_e[m, n] += weight * detJ * (
-                            -(dN_dx[m] * dN_dx[n] + dN_dy[m] * dN_dy[n])
-                            + self.k_squared * N[m] * N[n]
+                        # Stiffness and mass matrices
+                        K_e[m, n] += (
+                            weight
+                            * detJ
+                            * (
+                                -(dN_dx[m] * dN_dx[n] + dN_dy[m] * dN_dy[n])
+                                + self.k_squared * N[m] * N[n]
+                            )
                         )
 
         return K_e, F_e
@@ -107,7 +124,7 @@ class FEM2DSolver:
             jnp = jvp(m, k * r)
 
             # Contribution for n
-            normal_derivative += (self.eqn.i**m) * k * jnp * np.exp(self.eqn.i * m * theta)
+            normal_derivative += (1j**m) * k * jnp * np.exp(1j * m * theta)
 
         return normal_derivative
 
@@ -115,12 +132,12 @@ class FEM2DSolver:
         k = np.sqrt(self.k_squared)
 
         # set default value
-        coef = self.eqn.i * k
+        coef = 1j * k
 
         if order == 1:
-            coef = self.eqn.i * k
+            coef = 1j * k
         elif order == 2:
-            coef = -self.eqn.i * k - 1.0 / (2.0 * self.eqn.outer_radius)
+            coef = -1j * k - 1.0 / (2.0 * self.eqn.outer_radius)
         elif order == 3:
             for i, ith_node in enumerate(self.eqn.outer_boundary_node_indices):
                 theta_i = np.arctan2(
@@ -132,9 +149,9 @@ class FEM2DSolver:
                     )
                     if abs(theta_i - theta_j) < 0.5:
                         coef = (
-                            -self.eqn.i * k
+                            -1j * k
                             - 1.0 / (2.0 * self.eqn.outer_radius)
-                            - self.eqn.i / (8.0 * k * self.eqn.outer_radius**2)
+                            - 1j / (8.0 * k * self.eqn.outer_radius**2)
                         )
         else:
             raise ValueError("Invalid order for ABC condition. Enter 1, 2 or 3.")
@@ -146,7 +163,7 @@ class FEM2DSolver:
         node_coords = self.eqn.nodes[element]
 
         S_e = np.zeros((4, 4), dtype=complex)
-        gauss_points, gauss_weights = roots_legendre(4)
+        gauss_points, gauss_weights = roots_legendre(2)
 
         # Define the edges of the 4-node element
         edges = [
@@ -167,42 +184,13 @@ class FEM2DSolver:
             ):
                 continue
 
+            edge_length = np.linalg.norm(node_coords[edge[1]] - node_coords[edge[0]])
+
             # This edge is on the outer boundary, perform line integration
-            for i, s in enumerate(gauss_points):
-                # Map the 1D Gauss point to the correct position on this edge
-                if edge == (0, 1):  # Bottom edge
-                    # xi varies from -1 to 1, eta = -1
-                    xi = s
-                    eta = -1
-                elif edge == (1, 2):  # Right edge
-                    # xi = 1, eta varies from -1 to 1
-                    xi = 1
-                    eta = s
-                elif edge == (2, 3):  # Top edge
-                    # xi varies from 1 to -1, eta = 1
-                    xi = s
-                    eta = 1
-                elif edge == (3, 0):  # Left edge
-                    # xi = -1, eta varies from 1 to -1
-                    xi = -1
-                    eta = s
+            for i, xi in enumerate(gauss_points):
+                N = self.get_shape_fuctions_1d(xi)
 
-                # Calculate shape functions at this point
-                N, dN_dxi, dN_deta = self.get_shape_functions(xi, eta)
-
-                # Jacobian matrix
-                J = np.zeros((2, 2))
-                for m in range(4):
-                    J[0, 0] += dN_dxi[m] * node_coords[m, 0]
-                    J[0, 1] += dN_dxi[m] * node_coords[m, 1]
-                    J[1, 0] += dN_deta[m] * node_coords[m, 0]
-                    J[1, 1] += dN_deta[m] * node_coords[m, 1]
-
-                # Calculate differential length along the edge
-                if edge == (0, 1) or edge == (2, 3):  # Horizontal edges
-                    ds = np.sqrt(J[0, 0] ** 2 + J[0, 1] ** 2) #√[(∂x/∂ξ)² + (∂y/∂ξ)²]
-                else:  # Vertical edges
-                    ds = np.sqrt(J[1, 0] ** 2 + J[1, 1] ** 2) #√[(∂x/∂η)² + (∂y/∂η)²]
+                ds = edge_length / 2
 
                 # Sommerfeld coefficient (typically i*k for 2D Helmholtz)
                 sommerfeld_coef = self.abc_condition(self.abc_order)
@@ -210,11 +198,14 @@ class FEM2DSolver:
                 # Weight for this Gauss point
                 weight = gauss_weights[i]
 
-                # Compute the Sommerfeld matrix for this point
-                for m in range(4):
-                    for n in range(4):
-                        S_e[m, n] += N[m] * N[n] * sommerfeld_coef * ds * weight
-
+                # Distribute the 1D shape functions into the full 4-node system
+                for local_m in range(2):  # Only iterate over 1D shape functions
+                    global_m = edge[local_m]  # Map to the correct global node index
+                    for local_n in range(2):
+                        global_n = edge[local_m]
+                        S_e[global_m, global_n] += (
+                            N[local_m] * N[local_n] * sommerfeld_coef * ds * weight
+                        )
 
         return S_e
 
@@ -235,7 +226,7 @@ class FEM2DSolver:
         ]
 
         # 1D Gauss quadrature points and weights
-        gauss_points, gauss_weights = roots_legendre(4)
+        gauss_points, gauss_weights = roots_legendre(2)
 
         # Check each edge to see if it lies on the inner boundary
         for edge in edges:
@@ -248,52 +239,24 @@ class FEM2DSolver:
             ):
                 continue
 
+            edge_length = np.sqrt(
+                (node_coords[edge[1], 0] - node_coords[edge[0], 0]) ** 2
+                + (node_coords[edge[1], 1] - node_coords[edge[0], 1]) ** 2
+            )
+
             # This edge is on the inner boundary, perform line integration
-            for i, s in enumerate(gauss_points):
-                # Parameter s goes from -1 to 1 along the edge
-                # Map the Gauss point to the correct position on this edge
-                if edge == (0, 1):  # Bottom edge
-                    # xi varies from -1 to 1, eta = -1
-                    xi = s
-                    eta = -1
-                elif edge == (1, 2):  # Right edge
-                    # xi = 1, eta varies from -1 to 1
-                    xi = 1
-                    eta = s
-                elif edge == (2, 3):  # Top edge
-                    # xi varies from 1 to -1, eta = 1
-                    xi = s
-                    eta = 1
-                elif edge == (3, 0):  # Left edge
-                    # xi = -1, eta varies from 1 to -1
-                    xi = -1
-                    eta = s
+            for i, xi in enumerate(gauss_points):
+                N = self.get_shape_fuctions_1d(xi)
 
-                # Calculate shape functions and derivatives at this point
-                N, dN_dxi, dN_deta = self.get_shape_functions(xi, eta)
+                ds = edge_length / 2
 
-                # Jacobian matrix
-                J = np.zeros((2, 2))
-                for k in range(4):
-                    J[0, 0] += dN_dxi[k] * node_coords[k, 0]
-                    J[0, 1] += dN_dxi[k] * node_coords[k, 1]
-                    J[1, 0] += dN_deta[k] * node_coords[k, 0]
-                    J[1, 1] += dN_deta[k] * node_coords[k, 1]
-
-                # Calculate differential length along the edge
-                if edge == (0, 1) or edge == (2, 3):  # Horizontal edges
-                    ds = np.sqrt(J[0, 0] ** 2 + J[0, 1] ** 2) #√[(∂x/∂ξ)² + (∂y/∂ξ)²]
-                else:  # Vertical edges
-                    ds = np.sqrt(J[1, 0] ** 2 + J[1, 1] ** 2) #√[(∂x/∂η)² + (∂y/∂η)²]
-
-                # Current position
+                # # Current position
                 current_pos = np.zeros(2)
-                for k in range(4):
-                    current_pos[0] += N[k] * node_coords[k, 0] 
-                    current_pos[1] += N[k] * node_coords[k, 1] 
-
+                for k in range(2):  # 2 nodes per edge
+                    current_pos[0] += N[k] * node_coords[edge[k], 0]
+                    current_pos[1] += N[k] * node_coords[edge[k], 1]
                 x, y = current_pos
-                
+
                 # Get the normal derivative using the function
                 normal_derivative = self.get_normal_derivative(x, y)
 
@@ -301,8 +264,9 @@ class FEM2DSolver:
                 weight = gauss_weights[i]
 
                 # Add contribution to element vector
-                for m in range(4):
-                    N_e[m] += N[m] * normal_derivative * ds * weight
+                for local_m in range(2):  # Only iterate over 1D shape functions
+                    global_m = edge[local_m]  # Map to the correct global node index
+                    N_e[global_m] += N[local_m] * normal_derivative * ds * weight
 
         return N_e
 
@@ -344,6 +308,7 @@ class FEM2DSolver:
         self.assemble()
 
         u_complex = np.linalg.solve(self.K, self.F)
+
         u_real = np.real(u_complex)
         u_imag = np.imag(u_complex)
 
@@ -363,12 +328,32 @@ class FEM2DSolver:
             h_r = hankel1(m, k * r)
 
             # Derivatives
-            jp_m = jvp(m, k * r)
-            hp_m = h1vp(m, k * r)
+            jp_m = jvp(m, k)
+            hp_m = h1vp(m, k)
 
             # Contribution for positive n
-            u_ex += (
-                (self.eqn.i**m) * h_r * (jp_m / hp_m) * np.exp(self.eqn.i * m * theta)
-            )
+            u_ex -= (1j**m) * h_r * (jp_m / hp_m) * np.exp(1j * m * theta)
 
         return u_ex
+
+    # def get_analytical_solution(self, x, y):
+
+    #     r = np.sqrt(x**2 + y**2)
+    #     # Boundary conditions: u(inner_radius) = 0, u(outer_radius) = 1
+    #     u1 = 0
+    #     u2 = 1
+
+    #     # Construct the coefficient matrix using Bessel functions
+    #     matrix = np.array([
+    #         [j0(self.k_squared * self.inner_radius), y0(self.k_squared * self.inner_radius)],  # Inner boundary condition
+    #         [j0(self.k_squared * self.outer_radius), y0(self.k_squared * self.outer_radius)]   # Outer boundary condition
+    #     ])
+
+    #     # Right-hand side vector for boundary conditions
+    #     rhs = np.array([u1, u2])
+
+    #     # Solve the system of equations to find coefficients A and B
+    #     A, B = np.linalg.solve(matrix, rhs)
+
+    #     # Compute and return the analytical solution at all node positions
+    #     return A * j0(self.k_squared * r) + B * y0(self.k_squared * r)
