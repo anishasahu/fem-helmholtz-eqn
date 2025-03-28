@@ -13,9 +13,9 @@ class FEM2DSolver:
         eqn: "HelmHoltz",
         k_squared: float = 10.0,
         n_fourier: int = 50,
-        abc_order: int = 1,
+        abc_order: int = 3,
         inner_radius: float = 1.0,
-        outer_radius: float = 1.5,
+        outer_radius: float = 10.0,
     ):
         self.eqn = eqn
         self.k_squared = k_squared
@@ -137,7 +137,7 @@ class FEM2DSolver:
         if order == 1:
             coef = 1j * k
         elif order == 2:
-            coef = -1j * k - 1.0 / (2.0 * self.eqn.outer_radius)
+            coef = 1j * k + 1.0 / (2.0 * self.eqn.outer_radius)
         elif order == 3:
             for i, ith_node in enumerate(self.eqn.outer_boundary_node_indices):
                 theta_i = np.arctan2(
@@ -149,9 +149,9 @@ class FEM2DSolver:
                     )
                     if abs(theta_i - theta_j) < 0.5:
                         coef = (
-                            -1j * k
-                            - 1.0 / (2.0 * self.eqn.outer_radius)
-                            - 1j / (8.0 * k * self.eqn.outer_radius**2)
+                            1j * k
+                            + 1.0 / (2.0 * self.eqn.outer_radius)
+                            + 1j / (8.0 * k * self.eqn.outer_radius**2)
                         )
         else:
             raise ValueError("Invalid order for ABC condition. Enter 1, 2 or 3.")
@@ -304,7 +304,6 @@ class FEM2DSolver:
         self.K += self.S
         self.F += self.N
 
-    @timeit
     def solve(self) -> Tuple[np.ndarray, np.ndarray]:
         self.assemble()
 

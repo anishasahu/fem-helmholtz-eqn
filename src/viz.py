@@ -1,14 +1,11 @@
 import time
 
-import wandb
 import matplotlib.pyplot as plt
 import numpy as np
-
 import plotly.graph_objects as go
-from dotenv import load_dotenv
 
 
-def plot_comparison(solver, u_real, u_imag, tag, grid_points=50, fig_size=(800, 600)):
+def plot_comparison(solver, u_real, u_imag, grid_points=50, fig_size=(800, 600)):
     theta = np.linspace(0, 2 * np.pi, grid_points)
     r = np.linspace(solver.eqn.inner_radius, solver.eqn.outer_radius, grid_points)
 
@@ -19,17 +16,17 @@ def plot_comparison(solver, u_real, u_imag, tag, grid_points=50, fig_size=(800, 
     x_grid = r_grid * np.cos(theta_grid)
     y_grid = r_grid * np.sin(theta_grid)
 
-    # Calculate exact solution on the grid
-    u_exact = np.zeros((grid_points, grid_points), dtype=complex)
-    start = time.perf_counter()
-    for i in range(grid_points):
-        for j in range(grid_points):
-            u_exact[i, j] = solver.get_analytical_solution(x_grid[i, j], y_grid[i, j])
-    end = time.perf_counter()
-    print(f"Time {end - start:.4f} seconds")
+    # # Calculate exact solution on the grid
+    # u_exact = np.zeros((grid_points, grid_points), dtype=complex)
+    # start = time.perf_counter()
+    # for i in range(grid_points):
+    #     for j in range(grid_points):
+    #         u_exact[i, j] = solver.get_analytical_solution(x_grid[i, j], y_grid[i, j])
+    # end = time.perf_counter()
+    # print(f"Time {end - start:.4f} seconds")
 
-    # Compute magnitude of exact solution
-    map_exact = np.sqrt(np.real(u_exact) ** 2 + np.imag(u_exact) ** 2)
+    # # Compute magnitude of exact solution
+    # map_exact = np.sqrt(np.real(u_exact) ** 2 + np.imag(u_exact) ** 2)
 
     # Plotly plot for comparison
     fig = go.Figure()
@@ -52,17 +49,18 @@ def plot_comparison(solver, u_real, u_imag, tag, grid_points=50, fig_size=(800, 
             )
         )
 
-    # Plot exact solution (red surface)
-    fig.add_trace(
-        go.Surface(
-            x=x_grid,
-            y=y_grid,
-            z=map_exact,
-            colorscale="reds",
-            opacity=0.5,
-            name="Analytical Solution",
-        )
-    )
+    # # Plot exact solution (red surface)
+    # fig.add_trace(
+    #     go.Surface(
+    #         x=x_grid,
+    #         y=y_grid,
+    #         z=map_exact,
+    #         colorscale=[[0, "red"], [1, "red"]],
+    #         showscale=False,
+    #         opacity=0.4,
+    #         name="Analytical Solution",
+    #     )
+    # )
 
     # Update layout for interactivity
     fig.update_layout(
@@ -72,20 +70,25 @@ def plot_comparison(solver, u_real, u_imag, tag, grid_points=50, fig_size=(800, 
         height=fig_size[1],
         legend=dict(x=0.8, y=0.95),
     )
+    camera = dict(
+        eye=dict(x=1.5, y=1.5, z=0.1),
+    )
+    fig.update_layout(scene_camera=camera)
 
     fig.show()
 
-    # upload fig to wandb
-    load_dotenv()
-    wandb.init(project="fem-helmholtz", entity="sauravmaheshkar", tags=tag)
-    wandb.log(
-        {
-            "Numerical Solution (Green) vs. Analyitcal Solution (Red) with Dirichlet Conditions": fig
-        }
-    )
-    wandb.finish()
-
     return fig
+
+
+# upload fig to wandb
+# load_dotenv()
+# wandb.init(project="fem-helmholtz", entity="sauravmaheshkar", tags=tag)
+# wandb.log(
+#     {
+#         "Numerical Solution (Green) vs. Analyitcal Solution (Red) with Dirichlet Conditions": fig
+#     }
+# )
+# wandb.finish()
 
 
 def plot_mesh(eqn):

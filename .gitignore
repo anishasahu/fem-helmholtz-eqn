@@ -5,3 +5,4 @@ assets
 **/*.egg-info
 .ruff_cache
 uv.lock
+wandb
