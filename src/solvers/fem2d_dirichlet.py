@@ -3,15 +3,15 @@ from typing import Tuple
 import numpy as np
 from scipy.special import j0, y0, roots_legendre
 
-# import matplotlib.pyplot as plt
 from src.helmholtz import HelmHoltz
+from src.utils import timeit
 
 
 class FEM2DDirichletSolver:
     def __init__(
         self,
         eqn: "HelmHoltz",
-        k_squared: float = 1.0,
+        k_squared: float = 10.0,
         n_fourier: int = 50,
         abc_order: int = 1,
         inner_radius: float = 1.0,
@@ -145,6 +145,7 @@ class FEM2DDirichletSolver:
 
                 self.F[global_indices[i]] += F_e[i]
 
+    @timeit
     def solve(self) -> Tuple[np.ndarray, np.ndarray]:
         self.assemble()
 

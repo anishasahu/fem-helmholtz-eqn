@@ -3,15 +3,15 @@ from typing import Tuple
 import numpy as np
 from scipy.special import jv, jvp, roots_legendre, yv, yvp
 
-# import matplotlib.pyplot as plt
 from src.helmholtz import HelmHoltz
+from src.utils import timeit
 
 
 class FEM2DNeumannDirichletSolver:
     def __init__(
         self,
         eqn: "HelmHoltz",
-        k_squared: float = 1.0,
+        k_squared: float = 10.0,
         n_fourier: int = 50,
         abc_order: int = 1,
         inner_radius: float = 1.0,
@@ -225,6 +225,7 @@ class FEM2DNeumannDirichletSolver:
 
         self.F += self.N
 
+    @timeit
     def solve(self) -> Tuple[np.ndarray, np.ndarray]:
         self.assemble()
 
