@@ -7,11 +7,15 @@ requires-python = ">=3.10"
 dependencies = [
     "gmsh>=4.13.1",
     "jupyter>=1.1.1",
+    "kaleido==0.2.1",
     "matplotlib>=3.10.1",
     "numpy>=2.2.4",
+    "plotly>=6.0.1",
     "pre-commit>=4.1.0",
+    "python-dotenv>=1.1.0",
     "ruff>=0.11.0",
     "scipy>=1.15.2",
+    "wandb>=0.19.8",
 ]
 
 [tool.uv]
