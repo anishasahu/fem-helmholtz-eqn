@@ -1,31 +1,37 @@
+import time
+
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
+
 def plot_comparison(solver, u_real, u_imag, grid_points=50, fig_size=(12, 8)):
     theta = np.linspace(0, 2 * np.pi, grid_points)
     r = np.linspace(solver.eqn.inner_radius, solver.eqn.outer_radius, grid_points)
-    
+
     # Create meshgrid for polar coordinates
     r_grid, theta_grid = np.meshgrid(r, theta)
-    
+
     # Convert to Cartesian coordinates
     x_grid = r_grid * np.cos(theta_grid)
     y_grid = r_grid * np.sin(theta_grid)
-    
+
     # Calculate exact solution on the grid
     u_exact = np.zeros((grid_points, grid_points), dtype=complex)
+    start = time.perf_counter()
     for i in range(grid_points):
         for j in range(grid_points):
             u_exact[i, j] = solver.get_analytical_solution(x_grid[i, j], y_grid[i, j])
-    
+    end = time.perf_counter()
+    print(f"Time {end - start:.4f} seconds")
+
     # Compute magnitude of exact solution
     map_exact = np.sqrt(np.real(u_exact) ** 2 + np.imag(u_exact) ** 2)
-    
+
     # Create a single plot for comparison
     fig = plt.figure(figsize=fig_size)
-    ax = fig.add_subplot(111, projection='3d')
-    
+    ax = fig.add_subplot(111, projection="3d")
+
     # Plot numerical solution (green)
     for element in solver.eqn.elements:
         x = solver.eqn.nodes[element, 0]
@@ -44,23 +50,26 @@ def plot_comparison(solver, u_real, u_imag, grid_points=50, fig_size=(12, 8)):
         color="red",
         edgecolor="none",
         alpha=0.5,
-        label="Analytical"
+        label="Analytical",
     )
-    
+
     # Create a custom legend
     numerical_patch = plt.Rectangle((0, 0), 1, 1, color="green", alpha=0.6)
     analytical_patch = plt.Rectangle((0, 0), 1, 1, color="red", alpha=0.5)
-    ax.legend([numerical_patch, analytical_patch], ["Numerical Solution", "Analytical Solution"], 
-              loc="upper right")
-    
+    ax.legend(
+        [numerical_patch, analytical_patch],
+        ["Numerical Solution", "Analytical Solution"],
+        loc="upper right",
+    )
+
     # Set labels and title
     ax.set_title("Comparison of Numerical and Analytical Solutions")
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
     ax.set_zlabel("|u|")
-    
+
     plt.tight_layout()
-    
+
     return fig
 
 
