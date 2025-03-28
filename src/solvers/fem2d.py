@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import numpy as np
-from scipy.special import h1vp, hankel1, jvp, roots_legendre
+from scipy.special import h1vp, hankel1, jvp, yvp, jv, yv, roots_legendre
 
 from src.helmholtz import HelmHoltz
 from src.utils import timeit
@@ -301,8 +301,8 @@ class FEM2DSolver:
 
                 self.F[global_indices[i]] += F_e[i]
 
-        self.K = self.K + self.S
-        self.F = self.F + self.N
+        self.K += self.S
+        self.F += self.N
 
     @timeit
     def solve(self) -> Tuple[np.ndarray, np.ndarray]:

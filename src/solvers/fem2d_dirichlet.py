@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import numpy as np
-from scipy.special import j0, y0, roots_legendre
+from scipy.special import j0, roots_legendre, y0
 
 from src.helmholtz import HelmHoltz
 from src.utils import timeit
@@ -120,12 +120,12 @@ class FEM2DDirichletSolver:
         # u(r=1) = 0
         A[inner_nodes] = 0
         A[inner_nodes, inner_nodes] = 1
-        b[inner_nodes] = 0
+        b[inner_nodes] = 1
 
         # u(r=2) = 1
         A[outer_nodes] = 0
         A[outer_nodes, outer_nodes] = 1
-        b[outer_nodes] = 1
+        b[outer_nodes] = 0
 
         return A, b
 
@@ -157,17 +157,25 @@ class FEM2DDirichletSolver:
         return u_real, u_imag
 
     def get_analytical_solution(self, x, y):
-        r = np.sqrt(x ** 2 + y ** 2)
+        r = np.sqrt(x**2 + y**2)
+        k = np.sqrt(self.k_squared)
 
-        # Boundary conditions: u(inner_radius) = 0, u(outer_radius) = 1
-        u1 = 0
-        u2 = 1
+        u1 = 1
+        u2 = 0
 
         # Construct the coefficient matrix using Bessel functions
-        matrix = np.array([
-            [j0(self.k_squared * self.inner_radius), y0(self.k_squared * self.inner_radius)],  # Inner boundary condition
-            [j0(self.k_squared * self.outer_radius), y0(self.k_squared * self.outer_radius)]   # Outer boundary condition
-        ])
+        matrix = np.array(
+            [
+                [
+                    j0(k * self.inner_radius),
+                    y0(k * self.inner_radius),
+                ],  # Inner boundary condition
+                [
+                    j0(k * self.outer_radius),
+                    y0(k * self.outer_radius),
+                ],  # Outer boundary condition
+            ]
+        )
 
         # Right-hand side vector for boundary conditions
         rhs = np.array([u1, u2])
@@ -176,4 +184,4 @@ class FEM2DDirichletSolver:
         A, B = np.linalg.solve(matrix, rhs)
 
         # Compute and return the analytical solution at all node positions
-        return A * j0(self.k_squared * r) + B * y0(self.k_squared * r)
+        return A * j0(k * r) + B * y0(k* r)

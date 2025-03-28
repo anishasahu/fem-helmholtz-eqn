@@ -1,11 +1,11 @@
 from src.helmholtz import HelmHoltz
 from src.solvers import (
     FEM2DDirichletSolver,
-    FEM2DNeumannDirichletSolver,
     FEM2DDirichletSommerfeldSolver,
+    FEM2DNeumannDirichletSolver,
+    FEM2DSolver,
 )
 from src.viz import plot_comparison, plot_mesh
-import matplotlib.pyplot as plt
 
 eqn = HelmHoltz()
 solver0 = FEM2DDirichletSolver(eqn)
@@ -16,6 +16,15 @@ u_real1, u_imag1 = solver1.solve()
 
 solver2 = FEM2DDirichletSommerfeldSolver(eqn)
 u_real2, u_imag2 = solver2.solve()
+
+solver3 = FEM2DSolver(eqn)
+u_real3, u_imag3 = solver3.solve()
+
+solver3 = FEM2DSolver(eqn)
+u_real3, u_imag3 = solver3.solve()
+
+solver3 = FEM2DSolver(eqn)
+u_real3, u_imag3 = solver3.solve()
 
 fig = plot_mesh(eqn)
 fig.savefig("assets/mesh.png", dpi=300, bbox_inches="tight")

@@ -245,13 +245,18 @@ class FEM2DNeumannDirichletSolver:
         u_ex = 0 + 0j
 
         for m in range(-self.n_fourier, self.n_fourier + 1):
-
             u_ex += (
                 1j**m
                 * np.exp(1j * m * theta)
                 * jvp(m, k)
-                * (jv(m, self.outer_radius * k) * yv(m, k * r) - yv(m, self.outer_radius * k) * jv(m, k * r))
-                / (jvp(m, k) * yv(m, self.outer_radius * k) - yvp(m, k) * jv(m, self.outer_radius * k))
+                * (
+                    jv(m, self.outer_radius * k) * yv(m, k * r)
+                    - yv(m, self.outer_radius * k) * jv(m, k * r)
+                )
+                / (
+                    jvp(m, k) * yv(m, self.outer_radius * k)
+                    - yvp(m, k) * jv(m, self.outer_radius * k)
+                )
             )
 
         return u_ex

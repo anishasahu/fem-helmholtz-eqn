@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import numpy as np
-from scipy.special import j0, y0, roots_legendre
+from scipy.special import j0, y0, jv, yv, roots_legendre
 
 from src.helmholtz import HelmHoltz
 from src.utils import timeit
@@ -119,7 +119,7 @@ class FEM2DDirichletSommerfeldSolver:
         # u(r=1) = 0
         A[inner_nodes] = 0
         A[inner_nodes, inner_nodes] = 1
-        b[inner_nodes] = 0
+        b[inner_nodes] = 1
 
         return A, b
 
@@ -203,12 +203,12 @@ class FEM2DDirichletSommerfeldSolver:
                         )
 
         return S_e
-            
+
     def assemble(self) -> None:
         self.K = np.zeros((self.eqn.n_nodes, self.eqn.n_nodes), dtype=complex)
         self.F = np.zeros(self.eqn.n_nodes, dtype=complex)
         self.S = np.zeros((self.eqn.n_nodes, self.eqn.n_nodes), dtype=complex)
-        
+
         for idx in self.eqn.outer_boundary_element_indices:
             S_e = self.sommerfeld_element_matrices(idx)
             global_indices = self.eqn.elements[idx]
@@ -226,7 +226,7 @@ class FEM2DDirichletSommerfeldSolver:
                     self.K[global_indices[i], global_indices[j]] += K_e[i, j]
 
                 self.F[global_indices[i]] += F_e[i]
-        
+
         self.K += self.S
 
     @timeit
@@ -241,17 +241,26 @@ class FEM2DDirichletSommerfeldSolver:
         return u_real, u_imag
 
     def get_analytical_solution(self, x, y):
-        r = np.sqrt(x ** 2 + y ** 2)
+        r = np.sqrt(x**2 + y**2)
+        k = np.sqrt(self.k_squared)
 
-        # Boundary conditions: u(inner_radius) = 0, u(outer_radius) = 1
-        u1 = 0
-        u2 = 1
+        # Boundary conditions: u(inner_radius) = 1, u(outer_radius) = 0
+        u1 = 1
+        u2 = 0
 
         # Construct the coefficient matrix using Bessel functions
-        matrix = np.array([
-            [j0(self.k_squared * self.inner_radius), y0(self.k_squared * self.inner_radius)],  # Inner boundary condition
-            [j0(self.k_squared * self.outer_radius), y0(self.k_squared * self.outer_radius)]   # Outer boundary condition
-        ])
+        matrix = np.array(
+            [
+                [
+                    j0(k),
+                    y0(k),
+                ],  # Inner boundary condition
+                [
+                    -jv(1, k * self.outer_radius) - 1j * j0(k * self.outer_radius),
+                    -yv(1, k * self.outer_radius) - 1j * y0(k * self.outer_radius),
+                ],  # Outer boundary condition
+            ]
+        )
 
         # Right-hand side vector for boundary conditions
         rhs = np.array([u1, u2])
@@ -260,4 +269,6 @@ class FEM2DDirichletSommerfeldSolver:
         A, B = np.linalg.solve(matrix, rhs)
 
         # Compute and return the analytical solution at all node positions
-        return A * j0(self.k_squared * r) + B * y0(self.k_squared * r)
+        return A * j0(k * r) + B * y0(k * r)
+
+        # return u_ex
