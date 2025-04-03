@@ -47,9 +47,9 @@ class HelmHoltz:
         gmsh.model.occ.synchronize()
 
         # Define mesh size
-        mesh_size = (self.outer_radius - self.inner_radius) / self.n_r
+        self.mesh_size = (self.outer_radius - self.inner_radius) / self.n_r
 
-        gmsh.model.mesh.setSize(gmsh.model.getEntities(0), mesh_size)
+        gmsh.model.mesh.setSize(gmsh.model.getEntities(0), self.mesh_size)
 
         # Generate 2D mesh with bilinear quadrilateral elements
         gmsh.model.mesh.generate(2)

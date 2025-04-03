@@ -1,19 +1,13 @@
 from src.helmholtz import HelmHoltz
 from abc import ABC
 
-from typing import Tuple, Union
+from typing import Tuple
 from scipy.special import roots_legendre
-
-from .fem2d import FEM2DSolver
-from .fem2d_dirichlet import FEM2DDirichletSolver
-from .fem2d_neumann_dirichlet import FEM2DNeumannDirichletSolver
-from .fem2d_dirichlet_sommerfeld import FEM2DDirichletSommerfeldSolver
 
 
 import numpy as np
 
 __all__ = ["BaseSolver"]
-solvers = ["default", "dirichlet", "dirichlet_sommerfeld", "neumann_dirichlet"]
 
 
 class BaseSolver(ABC):
@@ -120,24 +114,71 @@ class BaseSolver(ABC):
 
         return K_e, F_e
 
+    def compute_L2_error(self, u_num_real, u_num_imag):
+        L2_error = 0.0
 
-def get_solver(
-    type: str, eqn
-) -> Union[
-    FEM2DNeumannDirichletSolver,
-    FEM2DDirichletSolver,
-    FEM2DDirichletSommerfeldSolver,
-    FEM2DSolver,
-]:
-    assert type in solvers, f"Invalid solver type: {type} expected one of: {solvers}"
+        # Get Gauss quadrature points and weights
+        gauss_points, gauss_weights = roots_legendre(2)
 
-    if type == "default":
-        return FEM2DSolver(eqn)
-    elif type == "dirichlet":
-        return FEM2DDirichletSolver(eqn)
-    elif type == "neumann_dirichlet":
-        return FEM2DNeumannDirichletSolver(eqn)
-    elif type == "dirichlet_sommerfeld":
-        return FEM2DDirichletSommerfeldSolver(eqn)
+        # Iterate over all elements
+        for idx in range(self.eqn.n_elements):
+            element_nodes = self.eqn.elements[idx]
+            node_coords = self.eqn.nodes[element_nodes]
 
-    raise AssertionError(f"Unhandled solver type: {type}")
+            # Get numerical solution at this element's nodes
+            u_elem_real = u_num_real[element_nodes]
+            u_elem_imag = u_num_imag[element_nodes]
+            u_elem = u_elem_real + 1j * u_elem_imag
+
+            element_error = 0.0
+
+            # Numerical integration over the element
+            for i, xi in enumerate(gauss_points):
+                for j, eta in enumerate(gauss_points):
+                    # Shape functions at this Gauss point
+                    N, dN_dxi, dN_deta = self.get_shape_functions(xi, eta)
+
+                    # Calculate x, y coordinates at this Gauss point
+                    x = 0.0
+                    y = 0.0
+                    for k in range(4):
+                        x += N[k] * node_coords[k, 0]
+                        y += N[k] * node_coords[k, 1]
+
+                    # Interpolate numerical solution at this point
+                    u_num = 0.0
+                    for k in range(4):
+                        u_num += N[k] * u_elem[k]
+
+                    # Analytical solution at this point
+                    u_exact = self.get_analytical_solution(x, y)
+
+                    # Jacobian for coordinate transformation
+                    J = np.zeros((2, 2))
+                    for k in range(4):
+                        J[0, 0] += dN_dxi[k] * node_coords[k, 0]
+                        J[0, 1] += dN_dxi[k] * node_coords[k, 1]
+                        J[1, 0] += dN_deta[k] * node_coords[k, 0]
+                        J[1, 1] += dN_deta[k] * node_coords[k, 1]
+
+                    # Determinant of Jacobian
+                    detJ = J[0, 0] * J[1, 1] - J[0, 1] * J[1, 0]
+
+                    # Contribution to error at this Gauss point
+                    error_at_point = abs(u_num - u_exact) ** 2
+                    element_error += (
+                        error_at_point * detJ * gauss_weights[i] * gauss_weights[j]
+                    )
+
+            L2_error += element_error
+
+        return np.sqrt(L2_error)
+
+    def assemble(self):
+        raise NotImplementedError("Assembly not implemented")
+
+    def solve(self):
+        raise NotImplementedError("Solver not implemented")
+
+    def get_analytical_solution(self, x, y):
+        raise NotImplementedError("Analytical solution not implemented")

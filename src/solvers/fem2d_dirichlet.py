@@ -4,8 +4,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.special import j0, y0
 
-from src.utils import timeit
-from src.solvers.base import BaseSolver
+from .base import BaseSolver
 
 
 class FEM2DDirichletSolver(BaseSolver):
@@ -45,7 +44,6 @@ class FEM2DDirichletSolver(BaseSolver):
 
                 self.F[global_indices[i]] += F_e[i]
 
-    @timeit
     def solve(self) -> Tuple[NDArray, NDArray]:
         self.assemble()
 

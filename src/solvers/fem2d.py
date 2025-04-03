@@ -4,8 +4,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.special import h1vp, hankel1, jvp, roots_legendre
 
-from src.solvers.base import BaseSolver
-from src.utils import timeit
+from .base import BaseSolver
 
 
 class FEM2DSolver(BaseSolver):
@@ -174,7 +173,6 @@ class FEM2DSolver(BaseSolver):
         self.K += self.S
         self.F += self.N
 
-    @timeit
     def solve(self) -> Tuple[NDArray, NDArray]:
         self.assemble()
 

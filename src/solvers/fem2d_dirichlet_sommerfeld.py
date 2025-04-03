@@ -4,8 +4,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.special import j0, y0, jv, yv, roots_legendre
 
-from src.utils import timeit
-from src.solvers.base import BaseSolver
+from .base import BaseSolver
 
 
 class FEM2DDirichletSommerfeldSolver(BaseSolver):
@@ -101,7 +100,6 @@ class FEM2DDirichletSommerfeldSolver(BaseSolver):
 
         self.K += self.S
 
-    @timeit
     def solve(self) -> Tuple[NDArray, NDArray]:
         self.assemble()
 

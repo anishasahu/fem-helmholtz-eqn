@@ -1,15 +1,22 @@
-import time
-from functools import wraps
+from src.solvers.fem2d import FEM2DSolver
+from src.solvers.fem2d_dirichlet import FEM2DDirichletSolver
+from src.solvers.fem2d_neumann_dirichlet import FEM2DNeumannDirichletSolver
+from src.solvers.fem2d_dirichlet_sommerfeld import FEM2DDirichletSommerfeldSolver
 
 
-def timeit(func):
-    @wraps(func)
-    def timeit_wrapper(*args, **kwargs):
-        start_time = time.perf_counter()
-        result = func(*args, **kwargs)
-        end_time = time.perf_counter()
-        total_time = end_time - start_time
-        print(f"Function {func.__name__} Took {total_time:.4f} seconds")
-        return result
+solvers = ["default", "dirichlet", "dirichlet_sommerfeld", "neumann_dirichlet"]
 
-    return timeit_wrapper
+
+def get_solver(type: str, eqn, **kwargs):
+    assert type in solvers, f"Invalid solver type: {type} expected one of: {solvers}"
+
+    if type == "default":
+        return FEM2DSolver(eqn, **kwargs)
+    elif type == "dirichlet":
+        return FEM2DDirichletSolver(eqn, **kwargs)
+    elif type == "neumann_dirichlet":
+        return FEM2DNeumannDirichletSolver(eqn, **kwargs)
+    elif type == "dirichlet_sommerfeld":
+        return FEM2DDirichletSommerfeldSolver(eqn, **kwargs)
+
+    raise AssertionError(f"Unhandled solver type: {type}")
