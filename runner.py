@@ -1,28 +1,23 @@
+import matplotlib.pyplot as plt
+
 from src.helmholtz import HelmHoltz
-from src.solvers import get_solver
-from src.viz import plot_comparison, plot_mesh
+from src.utils import get_solver
+from src.viz import plot_comparison, plot_mesh, plot_convergence
+
+k_squared_values = [1, 10]
+n_r_values = [5, 7, 9]
 
 eqn = HelmHoltz()
-solver0 = get_solver("dirichlet", eqn)
-u_real0, u_imag0 = solver0.solve()
-
-solver1 = get_solver("neumann_dirichlet", eqn)
-u_real1, u_imag1 = solver1.solve()
-
-solver2 = get_solver("dirichlet_sommerfeld", eqn)
-u_real2, u_imag2 = solver2.solve()
-
-solver3 = get_solver("default", eqn)
-u_real3, u_imag3 = solver3.solve()
-
 fig = plot_mesh(eqn)
 fig.savefig("assets/mesh.png", dpi=300, bbox_inches="tight")
+plt.close(fig)
 
-fig = plot_comparison(solver0, u_real0, u_imag0, tag=["dirichlet"])
-fig.write_image("assets/dirichlet_soln.png")
+for type in ["dirichlet", "neumann_dirichlet", "dirichlet_sommerfeld", "default"]:
+    solver = get_solver(type, eqn)
+    u_real, u_imag = solver.solve()
+    fig = plot_comparison(solver, u_real, u_imag)
+    fig.write_image(f"assets/{type}_soln.png")
 
-fig = plot_comparison(solver1, u_real1, u_imag1, tag=["neumann_dirichlet"])
-fig.write_image("assets/neumann_dirichlet_sol.png")
-
-fig = plot_comparison(solver2, u_real2, u_imag2, tag=["dirichlet_sommerfeld"])
-fig.write_image("assets/dirichlet_sommerfeld_sol.png")
+fig = plot_convergence("dirichlet", k_squared_values, n_r_values)
+fig.savefig("assets/convergence_plot.png", dpi=300)
+plt.close(fig)

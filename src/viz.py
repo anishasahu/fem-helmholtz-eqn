@@ -1,5 +1,7 @@
 import time
+from typing import Optional, List
 
+from utils import get_solver
 import wandb
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,12 +9,15 @@ import numpy as np
 import plotly.graph_objects as go
 from dotenv import load_dotenv
 
+from src.helmholtz import HelmHoltz
+from src.utils import solvers
+
 
 def plot_comparison(
     solver,
     u_real,
     u_imag,
-    tag,
+    tag: Optional[List[str]] = None,
     grid_points=50,
     fig_size=(800, 600),
     sync_to_wandb: bool = False,
@@ -141,3 +146,44 @@ def plot_mesh(eqn):
     plt.tight_layout()
 
     return fig
+
+
+def plot_convergence(type: str, k_squared_values, n_r_values):
+    """Plot L2 error vs. mesh size for different k values and return the figure object."""
+
+    assert type in solvers, f"Invalid solver type: {type} expected one of: {solvers}"
+
+    for k_squared in k_squared_values:
+        errors = []
+        mesh_sizes = []
+
+        for n_r in n_r_values:
+            eqn = HelmHoltz(n_r=n_r)
+            solver = get_solver(type, eqn, k_squared=k_squared)
+
+            u_real, u_imag = solver.solve()
+            L2_error = solver.compute_L2_error(u_real, u_imag)
+
+            errors.append(L2_error)
+            mesh_sizes.append(eqn.mesh_size)
+
+        log_h = np.log10(mesh_sizes)
+        log_error = np.log10(errors)
+        slope, _ = np.polyfit(log_h, log_error, 1)
+        plt.plot(
+            mesh_sizes,
+            errors,
+            marker="o",
+            label=f"k^2 = {k_squared} (slope = {slope:.2f})",
+        )
+
+    plt.xscale("log")
+    plt.yscale("log")
+
+    plt.xlabel("Element Size h")
+    plt.ylabel("L2-norm Error")
+    plt.title("Convergence Test: Log-Log Error Plot")
+    plt.legend()
+    plt.grid(True, which="both", linestyle="--", linewidth=0.5)
+
+    return plt.gcf()
