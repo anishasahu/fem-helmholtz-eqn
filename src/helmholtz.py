@@ -28,9 +28,8 @@ class HelmHoltz:
         self.u_real = np.zeros(self.n_nodes)
         self.u_imag = np.zeros(self.n_nodes)
 
-    def generate_mesh(self) -> None:
+    def generate_mesh(self):
         gmsh.initialize()
-
         gmsh.model.add("annulus")
 
         # Define the inner and outer circular boundaries
@@ -46,30 +45,37 @@ class HelmHoltz:
 
         gmsh.model.occ.synchronize()
 
-        # Define mesh size
-        self.mesh_size = (self.outer_radius - self.inner_radius) / self.n_r
+        # Define mesh size dynamically to prevent errors in large radius ranges
+        print(f"n_r: {self.n_r}, n_theta: {self.n_theta}")
+        self.mesh_size = min(
+            (self.outer_radius - self.inner_radius) / self.n_r,
+            (2 * np.pi * self.inner_radius) / self.n_theta,  # Ensures inner mesh is not too coarse
+            (2 * np.pi * self.outer_radius) / self.n_theta
+        )
+        print(f"Mesh size: {self.mesh_size}")
 
         gmsh.model.mesh.setSize(gmsh.model.getEntities(0), self.mesh_size)
 
-        # Generate 2D mesh with bilinear quadrilateral elements
+        # Generate 2D mesh with quadrilateral elements
         gmsh.model.mesh.generate(2)
         gmsh.model.mesh.recombine()
-        gmsh.model.mesh.setOrder(1)  # Changed to bilinear elements (order 1)
+        gmsh.model.mesh.setOrder(1)  # Bilinear elements
 
         # Extract node coordinates
         node_tags, node_coords, _ = gmsh.model.mesh.getNodes()
         self.nodes = np.array(node_coords).reshape(-1, 3)[:, :2]
         self.n_nodes = len(self.nodes)
 
-        # Extract element connectivity
+        # Extract element connectivity (handle different element types)
         self.elements = []
 
         elem_types, elem_tags, node_tags = gmsh.model.mesh.getElements(2)
 
         for i, etype in enumerate(elem_types):
-            self.elements = (
-                np.array(node_tags[i]).reshape(-1, 4) - 1
-            )  # Changed from 9 to 4 nodes per element
+            num_nodes_per_element = len(node_tags[i]) // len(elem_tags[i])  # Dynamically determine size
+            self.elements.append(np.array(node_tags[i]).reshape(-1, num_nodes_per_element) - 1)
+
+        self.elements = np.vstack(self.elements) if self.elements else np.array([])
 
         self.n_elements = len(self.elements)
 
@@ -94,7 +100,7 @@ class HelmHoltz:
             np.isclose(node_distances, self.outer_radius, atol=1e-5)
         )[0]
 
-        # Also keep the actual coordinates for convenience if needed
+        # Store boundary nodes
         self.inner_boundary_nodes = self.nodes[self.inner_boundary_node_indices]
         self.outer_boundary_nodes = self.nodes[self.outer_boundary_node_indices]
 
@@ -118,7 +124,7 @@ class HelmHoltz:
         if order == 1:
             coef = 1j * k
         elif order == 2:
-            coef = -1j * k - 1.0 / (2.0 * self.outer_radius)
+            coef = 1j * k + 1.0 / (2.0 * self.outer_radius)
         elif order == 3:
             for i, ith_node in enumerate(self.outer_boundary_node_indices):
                 theta_i = np.arctan2(self.nodes[ith_node, 1], self.nodes[ith_node, 0])
@@ -128,9 +134,9 @@ class HelmHoltz:
                     )
                     if abs(theta_i - theta_j) < 0.5:
                         coef = (
-                            -1j * k
-                            - 1.0 / (2.0 * self.outer_radius)
-                            - 1j / (8.0 * k * self.outer_radius**2)
+                            1j * k
+                            + 1.0 / (2.0 * self.outer_radius)
+                            + 1j / (8.0 * k * self.outer_radius**2)
                         )
         else:
             raise ValueError("Invalid order for ABC condition. Enter 1, 2 or 3.")

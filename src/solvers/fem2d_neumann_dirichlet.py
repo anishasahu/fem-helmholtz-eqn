@@ -12,7 +12,6 @@ class FEM2DNeumannDirichletSolver(BaseSolver):
         r = np.sqrt(x**2 + y**2)
         theta = np.arctan2(y, x)
         k = np.sqrt(self.k_squared)
-
         # Initialize normal derivative
         normal_derivative = complex(0.0, 0.0)
 
@@ -32,6 +31,8 @@ class FEM2DNeumannDirichletSolver(BaseSolver):
 
         # Initialize element contribution vector
         N_e = np.zeros(4, dtype=complex)
+        # 1D Gauss quadrature points and weights
+        gauss_points, gauss_weights = roots_legendre(3)
 
         # Define the edges of the 4-node element
         edges = [
@@ -40,9 +41,6 @@ class FEM2DNeumannDirichletSolver(BaseSolver):
             (2, 3),  # Top edge (xi varies, eta = 1)
             (3, 0),  # Left edge (xi = -1, eta varies)
         ]
-
-        # 1D Gauss quadrature points and weights
-        gauss_points, gauss_weights = roots_legendre(2)
 
         # Check each edge to see if it lies on the inner boundary
         for edge in edges:
@@ -55,10 +53,8 @@ class FEM2DNeumannDirichletSolver(BaseSolver):
             ):
                 continue
 
-            edge_length = np.sqrt(
-                (node_coords[edge[1], 0] - node_coords[edge[0], 0]) ** 2
-                + (node_coords[edge[1], 1] - node_coords[edge[0], 1]) ** 2
-            )
+            # Calculate edge length
+            edge_length = np.linalg.norm(node_coords[edge[1]] - node_coords[edge[0]])
 
             # This edge is on the inner boundary, perform line integration
             for i, xi in enumerate(gauss_points):
@@ -66,7 +62,7 @@ class FEM2DNeumannDirichletSolver(BaseSolver):
 
                 ds = edge_length / 2
 
-                # # Current position
+                # Current position
                 current_pos = np.zeros(2)
                 for k in range(2):  # 2 nodes per edge
                     current_pos[0] += N[k] * node_coords[edge[k], 0]
@@ -82,8 +78,7 @@ class FEM2DNeumannDirichletSolver(BaseSolver):
                 # Add contribution to element vector
                 for local_m in range(2):  # Only iterate over 1D shape functions
                     global_m = edge[local_m]  # Map to the correct global node index
-                    N_e[global_m] += N[local_m] * normal_derivative * ds * weight
-
+                    N_e[global_m] -= N[local_m] * normal_derivative * ds * weight
         return N_e
 
     def apply_boundary_conditions(
@@ -93,7 +88,7 @@ class FEM2DNeumannDirichletSolver(BaseSolver):
         outer_nodes = np.abs(r - self.outer_radius) < tol
 
         # Apply Dirichlet conditions in outer boundary
-        # u(r=2) = 0
+        # u(r=outer_radius) = 0
         A[outer_nodes] = 0
         A[outer_nodes, outer_nodes] = 1
         b[outer_nodes] = 0
@@ -103,14 +98,14 @@ class FEM2DNeumannDirichletSolver(BaseSolver):
     def assemble(self) -> None:
         self.K = np.zeros((self.eqn.n_nodes, self.eqn.n_nodes), dtype=complex)
         self.F = np.zeros(self.eqn.n_nodes, dtype=complex)
-        self.N = np.zeros(self.eqn.n_nodes, dtype=complex)
+        self.N_global = np.zeros(self.eqn.n_nodes, dtype=complex)
 
         for idx in self.eqn.inner_boundary_element_indices:
             N_e = self.neumann_element_matrices(idx)
             global_indices = self.eqn.elements[idx]
 
             for i in range(4):
-                self.N[global_indices[i]] += N_e[i]
+                self.N_global[global_indices[i]] += N_e[i]
 
         for idx in range(self.eqn.n_elements):
             K_e, F_e = self.get_element_matrices(idx)
@@ -122,7 +117,7 @@ class FEM2DNeumannDirichletSolver(BaseSolver):
 
                 self.F[global_indices[i]] += F_e[i]
 
-        self.F += self.N
+        self.F += self.N_global 
 
     def solve(self) -> Tuple[NDArray, NDArray]:
         self.assemble()

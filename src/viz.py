@@ -148,7 +148,7 @@ def plot_mesh(eqn):
     return fig
 
 
-def plot_convergence(type: str, k_squared_values, n_r_values):
+def plot_convergence(type: str, k_squared_values, n_r_n_theta_values):
     """Plot L2 error vs. mesh size for different k values and return the figure object."""
 
     assert type in solvers, f"Invalid solver type: {type} expected one of: {solvers}"
@@ -157,8 +157,8 @@ def plot_convergence(type: str, k_squared_values, n_r_values):
         errors = []
         mesh_sizes = []
 
-        for n_r in n_r_values:
-            eqn = HelmHoltz(n_r=n_r)
+        for (n_r, n_theta) in n_r_n_theta_values:
+            eqn = HelmHoltz(n_r=n_r, n_theta=n_theta)
             solver = get_solver(type, eqn, k_squared=k_squared)
 
             u_real, u_imag = solver.solve()

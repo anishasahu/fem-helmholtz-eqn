@@ -15,7 +15,7 @@ class FEM2DDirichletSommerfeldSolver(BaseSolver):
         inner_nodes = np.abs(r - self.inner_radius) < tol
 
         # Apply Dirichlet conditions
-        # u(r=1) = 0
+        # u(r=1) = 1
         A[inner_nodes] = 0
         A[inner_nodes, inner_nodes] = 1
         b[inner_nodes] = 1
