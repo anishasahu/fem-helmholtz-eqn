@@ -8,7 +8,15 @@ import plotly.graph_objects as go
 from dotenv import load_dotenv
 
 
-def plot_comparison(solver, u_real, u_imag, tag, grid_points=50, fig_size=(800, 600)):
+def plot_comparison(
+    solver,
+    u_real,
+    u_imag,
+    tag,
+    grid_points=50,
+    fig_size=(800, 600),
+    sync_to_wandb: bool = False,
+):
     theta = np.linspace(0, 2 * np.pi, grid_points)
     r = np.linspace(solver.eqn.inner_radius, solver.eqn.outer_radius, grid_points)
 
@@ -76,14 +84,15 @@ def plot_comparison(solver, u_real, u_imag, tag, grid_points=50, fig_size=(800, 
     fig.show()
 
     # upload fig to wandb
-    load_dotenv()
-    wandb.init(project="fem-helmholtz", entity="sauravmaheshkar", tags=tag)
-    wandb.log(
-        {
-            "Numerical Solution (Green) vs. Analyitcal Solution (Red) with Dirichlet Conditions": fig
-        }
-    )
-    wandb.finish()
+    if sync_to_wandb:
+        load_dotenv()
+        wandb.init(project="fem-helmholtz", entity="sauravmaheshkar", tags=tag)
+        wandb.log(
+            {
+                "Numerical Solution (Green) vs. Analyitcal Solution (Red) with Dirichlet Conditions": fig
+            }
+        )
+        wandb.finish()
 
     return fig
 

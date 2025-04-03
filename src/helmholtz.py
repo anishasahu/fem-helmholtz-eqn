@@ -5,12 +5,12 @@ import numpy as np
 class HelmHoltz:
     def __init__(
         self,
-        inner_radius=1.0,
-        outer_radius=1.5,
-        n_theta=10,
-        n_r=9,
-        abc_order=1,
-    ):
+        inner_radius: float = 1.0,
+        outer_radius: float = 1.5,
+        n_theta: int = 10,
+        n_r: int = 9,
+        abc_order: int = 1,
+    ) -> None:
         # Global parameters
         self.inner_radius = inner_radius
         self.outer_radius = outer_radius
@@ -23,15 +23,12 @@ class HelmHoltz:
         self.n_theta_nodes = 2 * self.n_theta + 1
         self.n_r_nodes = 2 * self.n_r + 1
 
-        # Complex number i
-        self.i = complex(0.0, 1.0)
-
         # Initialize mesh and solution vectors
         self.generate_mesh()
         self.u_real = np.zeros(self.n_nodes)
         self.u_imag = np.zeros(self.n_nodes)
 
-    def generate_mesh(self):
+    def generate_mesh(self) -> None:
         gmsh.initialize()
 
         gmsh.model.add("annulus")
@@ -111,3 +108,31 @@ class HelmHoltz:
                 self.outer_boundary_element_indices.append(idx)
 
         gmsh.finalize()
+
+    def get_abc_coeff(self, k_squared, order: int) -> complex:
+        k = np.sqrt(k_squared)
+
+        # set default value
+        coef = 1j * k
+
+        if order == 1:
+            coef = 1j * k
+        elif order == 2:
+            coef = -1j * k - 1.0 / (2.0 * self.outer_radius)
+        elif order == 3:
+            for i, ith_node in enumerate(self.outer_boundary_node_indices):
+                theta_i = np.arctan2(self.nodes[ith_node, 1], self.nodes[ith_node, 0])
+                for j, jth_node in enumerate(self.outer_boundary_node_indices):
+                    theta_j = np.arctan2(
+                        self.nodes[jth_node, 1], self.nodes[jth_node, 0]
+                    )
+                    if abs(theta_i - theta_j) < 0.5:
+                        coef = (
+                            -1j * k
+                            - 1.0 / (2.0 * self.outer_radius)
+                            - 1j / (8.0 * k * self.outer_radius**2)
+                        )
+        else:
+            raise ValueError("Invalid order for ABC condition. Enter 1, 2 or 3.")
+
+        return coef

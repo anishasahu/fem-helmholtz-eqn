@@ -1,29 +1,18 @@
 from src.helmholtz import HelmHoltz
-from src.solvers import (
-    FEM2DDirichletSolver,
-    FEM2DDirichletSommerfeldSolver,
-    FEM2DNeumannDirichletSolver,
-    FEM2DSolver,
-)
+from src.solvers import get_solver
 from src.viz import plot_comparison, plot_mesh
 
 eqn = HelmHoltz()
-solver0 = FEM2DDirichletSolver(eqn)
+solver0 = get_solver("dirichlet", eqn)
 u_real0, u_imag0 = solver0.solve()
 
-solver1 = FEM2DNeumannDirichletSolver(eqn)
+solver1 = get_solver("neumann_dirichlet", eqn)
 u_real1, u_imag1 = solver1.solve()
 
-solver2 = FEM2DDirichletSommerfeldSolver(eqn)
+solver2 = get_solver("dirichlet_sommerfeld", eqn)
 u_real2, u_imag2 = solver2.solve()
 
-solver3 = FEM2DSolver(eqn)
-u_real3, u_imag3 = solver3.solve()
-
-solver3 = FEM2DSolver(eqn)
-u_real3, u_imag3 = solver3.solve()
-
-solver3 = FEM2DSolver(eqn)
+solver3 = get_solver("default", eqn)
 u_real3, u_imag3 = solver3.solve()
 
 fig = plot_mesh(eqn)
