@@ -15,10 +15,10 @@ class BaseSolver(ABC):
         self,
         eqn: "HelmHoltz",
         k_squared: float = 10.0,
-        n_fourier: int = 50,
-        abc_order: int = 1,
+        n_fourier: int = 1,
+        abc_order: int = 3,
         inner_radius: float = 1.0,
-        outer_radius: float = 1.5,
+        outer_radius: float = 10.0,
     ):
         self.eqn = eqn
         self.k_squared = k_squared

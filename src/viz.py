@@ -145,18 +145,18 @@ def plot_comparison_2d(
         go.Scatter(
             x=r,
             y=numerical_values,
-            mode="lines+markers",
+            mode="lines",
             name="Numerical Solution",
-            line=dict(color="blue"),
+            line=dict(color="blue", dash="dash"),
         )
     )
     fig.add_trace(
         go.Scatter(
             x=r,
             y=analytical_values,
-            mode="lines+markers",
+            mode="lines",
             name="Analytical Solution",
-            line=dict(color="red", dash="dash"),
+            line=dict(color="red"),
         )
     )
 

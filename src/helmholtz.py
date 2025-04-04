@@ -6,10 +6,10 @@ class HelmHoltz:
     def __init__(
         self,
         inner_radius: float = 1.0,
-        outer_radius: float = 1.5,
-        n_theta: int = 10,
-        n_r: int = 9,
-        abc_order: int = 1,
+        outer_radius: float = 10.0,
+        n_theta: int = 20,
+        n_r: int = 20,
+        abc_order: int = 3,
     ) -> None:
         # Global parameters
         self.inner_radius = inner_radius

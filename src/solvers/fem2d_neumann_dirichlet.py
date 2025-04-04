@@ -22,7 +22,7 @@ class FEM2DNeumannDirichletSolver(BaseSolver):
             # Contribution for n
             normal_derivative += (1j**m) * k * jnp * np.exp(1j * m * theta)
 
-        return normal_derivative
+        return -normal_derivative
 
     def neumann_element_matrices(self, idx):
         # Get element nodes and coordinates
@@ -78,7 +78,8 @@ class FEM2DNeumannDirichletSolver(BaseSolver):
                 # Add contribution to element vector
                 for local_m in range(2):  # Only iterate over 1D shape functions
                     global_m = edge[local_m]  # Map to the correct global node index
-                    N_e[global_m] -= N[local_m] * normal_derivative * ds * weight
+                    N_e[global_m] += N[local_m] * normal_derivative * ds * weight
+
         return N_e
 
     def apply_boundary_conditions(
