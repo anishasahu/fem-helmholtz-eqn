@@ -102,6 +102,77 @@ def plot_comparison(
     return fig
 
 
+def plot_comparison_2d(
+    solver,
+    u_real,
+    u_imag,
+    grid_points=50,
+    theta: float = 0,
+    fig_size=(800, 600),
+):
+    r = np.linspace(solver.eqn.inner_radius, solver.eqn.outer_radius, grid_points)
+
+    u_mag = np.sqrt(u_real**2 + u_imag**2)
+
+    numerical_values = []
+    for ri in r:
+        x = ri * np.cos(theta)
+        y = ri * np.sin(theta)
+
+        distances = np.sqrt(
+            (solver.eqn.nodes[:, 0] - x) ** 2 + (solver.eqn.nodes[:, 1] - y) ** 2
+        )
+        closest_idx = np.argmin(distances)
+        numerical_values.append(u_mag[closest_idx])
+
+    numerical_values = np.array(numerical_values)
+
+    u_exact = np.zeros_like(r, dtype=complex)
+    start = time.perf_counter()
+    for i, ri in enumerate(r):
+        x = ri * np.cos(theta)
+        y = ri * np.sin(theta)
+        u_exact[i] = solver.get_analytical_solution(x, y)
+    end = time.perf_counter()
+    print(f"Time {end - start:.4f} seconds")
+
+    analytical_values = np.abs(u_exact)
+
+    # Create 2D plot
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=r,
+            y=numerical_values,
+            mode="lines+markers",
+            name="Numerical Solution",
+            line=dict(color="blue"),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=r,
+            y=analytical_values,
+            mode="lines+markers",
+            name="Analytical Solution",
+            line=dict(color="red", dash="dash"),
+        )
+    )
+
+    fig.update_layout(
+        title=f"Comparison of |u| along r for θ = {theta:.2f} rad",
+        xaxis_title="r",
+        yaxis_title="|u|",
+        width=fig_size[0],
+        height=fig_size[1],
+        legend=dict(x=0.7, y=0.95),
+    )
+
+    fig.show()
+    return fig
+
+
 def plot_mesh(eqn):
     """Plot the generated mesh with nodes and elements."""
     fig, ax = plt.subplots()
@@ -157,7 +228,7 @@ def plot_convergence(type: str, k_squared_values, n_r_n_theta_values):
         errors = []
         mesh_sizes = []
 
-        for (n_r, n_theta) in n_r_n_theta_values:
+        for n_r, n_theta in n_r_n_theta_values:
             eqn = HelmHoltz(n_r=n_r, n_theta=n_theta)
             solver = get_solver(type, eqn, k_squared=k_squared)
 
