@@ -169,7 +169,6 @@ def plot_comparison_2d(
         legend=dict(x=0.7, y=0.95),
     )
 
-    fig.show()
     return fig
 
 
