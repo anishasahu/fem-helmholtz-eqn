@@ -2,7 +2,7 @@ from typing import Tuple
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.special import jv, jvp, roots_legendre, yv, yvp
+from scipy.special import jv, jvp, roots_legendre, yv, yvp, hankel1
 
 from .base import BaseSolver
 
@@ -154,3 +154,15 @@ class FEM2DNeumannDirichletSolver(BaseSolver):
             )
 
         return u_ex
+    # def get_analytical_solution(self, x, y) -> complex:
+    #     r = np.sqrt(x**2 + y**2)
+    #     # theta = np.arctan2(y, x)
+    #     k = np.sqrt(self.k_squared)
+
+    #     A0 = 1/hankel1(0, k * self.outer_radius)
+
+    #     # Compute the exact solution
+    #     u_ex = A0 * hankel1(0, k*r)
+
+    #     return u_ex
+

@@ -14,11 +14,11 @@ class BaseSolver(ABC):
     def __init__(
         self,
         eqn: "HelmHoltz",
-        k_squared: float = 10.0,
-        n_fourier: int = 1,
+        k_squared: float = 15.0,
+        n_fourier: int = 10,
         abc_order: int = 3,
         inner_radius: float = 1.0,
-        outer_radius: float = 10.0,
+        outer_radius: float = 15.0,
     ):
         self.eqn = eqn
         self.k_squared = k_squared
@@ -167,7 +167,7 @@ class BaseSolver(ABC):
                     # Contribution to error at this Gauss point
                     error_at_point = abs(u_num - u_exact) ** 2
                     element_error += (
-                        error_at_point * detJ * gauss_weights[i] * gauss_weights[j]
+                        error_at_point * abs(detJ) * gauss_weights[i] * gauss_weights[j]
                     )
 
             L2_error += element_error

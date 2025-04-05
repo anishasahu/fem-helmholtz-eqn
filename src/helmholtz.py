@@ -5,9 +5,9 @@ class HelmHoltz:
     def __init__(
         self,
         inner_radius: float = 1.0,
-        outer_radius: float = 1.5,
-        n_theta: int = 10,
-        n_r: int = 10,
+        outer_radius: float = 15.0,
+        n_theta: int = 25,
+        n_r: int = 25,
         abc_order: int = 3,
     ) -> None:
         # Global parameters
@@ -77,6 +77,8 @@ class HelmHoltz:
                 self.inner_boundary_element_indices.append(idx)
             if any(node in element for node in self.outer_boundary_node_indices):
                 self.outer_boundary_element_indices.append(idx)
+
+        self.mesh_size = 1 / self.n_elements
 
     def get_abc_coeff(self, k_squared, order: int) -> complex:
         k = np.sqrt(k_squared)

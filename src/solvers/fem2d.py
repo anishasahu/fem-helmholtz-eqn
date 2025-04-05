@@ -23,7 +23,7 @@ class FEM2DSolver(BaseSolver):
             # Contribution for n
             normal_derivative += (1j**m) * k * jnp * np.exp(1j * m * theta)
 
-        return normal_derivative
+        return -normal_derivative
 
     def sommerfeld_element_matrices(self, idx):
         element = self.eqn.elements[idx]
@@ -166,7 +166,7 @@ class FEM2DSolver(BaseSolver):
 
                 self.F[global_indices[i]] += F_e[i]
 
-        self.K += self.S
+        self.K -= self.S
         self.F += self.N_global
 
     def solve(self) -> Tuple[NDArray, NDArray]:
@@ -197,6 +197,6 @@ class FEM2DSolver(BaseSolver):
             hp_m = h1vp(m, k)
 
             # Contribution for positive n
-            u_ex -= (1j**m) * h_r * (jp_m / hp_m) * np.exp(1j * m * theta)
+            u_ex += (1j**m) * h_r * (jp_m / hp_m) * np.exp(1j * m * theta)
 
         return u_ex
