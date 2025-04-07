@@ -11,12 +11,12 @@ def get_solver(type: str, eqn, **kwargs):
     assert type in solvers, f"Invalid solver type: {type} expected one of: {solvers}"
 
     if type == "default":
-        return FEM2DSolver(eqn, **kwargs)
+        return FEM2DSolver(type, eqn, **kwargs)
     elif type == "dirichlet":
-        return FEM2DDirichletSolver(eqn, **kwargs)
+        return FEM2DDirichletSolver(type, eqn, **kwargs)
     elif type == "neumann_dirichlet":
-        return FEM2DNeumannDirichletSolver(eqn, **kwargs)
+        return FEM2DNeumannDirichletSolver(type, eqn, **kwargs)
     elif type == "dirichlet_sommerfeld":
-        return FEM2DDirichletSommerfeldSolver(eqn, **kwargs)
+        return FEM2DDirichletSommerfeldSolver(type, eqn, **kwargs)
 
     raise AssertionError(f"Unhandled solver type: {type}")

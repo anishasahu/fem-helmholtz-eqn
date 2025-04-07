@@ -166,7 +166,7 @@ class FEM2DSolver(BaseSolver):
 
                 self.F[global_indices[i]] += F_e[i]
 
-        self.K -= self.S
+        self.K += self.S
         self.F += self.N_global
 
     def solve(self) -> Tuple[NDArray, NDArray]:
@@ -179,7 +179,7 @@ class FEM2DSolver(BaseSolver):
 
         return u_real, u_imag
 
-    def get_analytical_solution(self, x, y) -> complex:
+    def get_analytical_solution_ordered(self, x, y, order: int) -> complex:
         r = np.sqrt(x**2 + y**2)
         theta = np.arctan2(y, x)
         k = np.sqrt(self.k_squared)
@@ -188,15 +188,22 @@ class FEM2DSolver(BaseSolver):
         u_ex = 0 + 0j
 
         # Evaluate Hankel functions at unit radius and at r
-        for m in range(-self.n_fourier, self.n_fourier + 1):
-            # Hankel function at r
-            h_r = hankel1(m, k * r)
+        if order == 1:
+            for m in range(-self.n_fourier, self.n_fourier + 1):
+                # Hankel function at r
+                h_r = hankel1(m, k * r)
 
-            # Derivatives
-            jp_m = jvp(m, k)
-            hp_m = h1vp(m, k)
+                # Derivatives
+                jp_m = jvp(m, k)
+                hp_m = h1vp(m, k)
 
-            # Contribution for positive n
-            u_ex += (1j**m) * h_r * (jp_m / hp_m) * np.exp(1j * m * theta)
+                # Contribution for positive n
+                u_ex += (1j**m) * h_r * (jp_m / hp_m) * np.exp(1j * m * theta)
+
+        elif order == 2:
+            pass
+
+        elif order == 3:
+            pass
 
         return u_ex

@@ -13,13 +13,15 @@ __all__ = ["BaseSolver"]
 class BaseSolver(ABC):
     def __init__(
         self,
+        type: str,
         eqn: "HelmHoltz",
-        k_squared: float = 15.0,
+        k_squared: float = 10.0,
         n_fourier: int = 10,
-        abc_order: int = 3,
+        abc_order: int = 2,
         inner_radius: float = 1.0,
-        outer_radius: float = 15.0,
+        outer_radius: float = 1.5,
     ):
+        self.type = type
         self.eqn = eqn
         self.k_squared = k_squared
         self.n_fourier = n_fourier
@@ -167,7 +169,7 @@ class BaseSolver(ABC):
                     # Contribution to error at this Gauss point
                     error_at_point = abs(u_num - u_exact) ** 2
                     element_error += (
-                        error_at_point * abs(detJ) * gauss_weights[i] * gauss_weights[j]
+                        error_at_point * detJ * gauss_weights[i] * gauss_weights[j]
                     )
 
             L2_error += element_error
@@ -181,4 +183,7 @@ class BaseSolver(ABC):
         raise NotImplementedError("Solver not implemented")
 
     def get_analytical_solution(self, x, y):
+        raise NotImplementedError("Analytical solution not implemented")
+    
+    def get_analytical_solution_ordered(self, x, y, order):
         raise NotImplementedError("Analytical solution not implemented")

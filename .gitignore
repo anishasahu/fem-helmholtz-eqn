@@ -4,4 +4,8 @@ assets
 **/*.pyc
 **/*.egg-info
 .ruff_cache
+**/*.log
+**/*.wandb
+**/*.json
+**/*.txt
 uv.lock

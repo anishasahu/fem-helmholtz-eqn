@@ -1,6 +1,8 @@
 import time
 from typing import Optional, List
 
+from solvers.fem2d import FEM2DSolver
+from solvers.fem2d_dirichlet_sommerfeld import FEM2DDirichletSommerfeldSolver
 from utils import get_solver
 import wandb
 import matplotlib.pyplot as plt
@@ -37,7 +39,10 @@ def plot_comparison(
     start = time.perf_counter()
     for i in range(grid_points):
         for j in range(grid_points):
-            u_exact[i, j] = solver.get_analytical_solution(x_grid[i, j], y_grid[i, j])
+            if solver.type == "dirichlet_sommerfeld" or solver.type == "default":
+                u_exact[i, j] = solver.get_analytical_solution_ordered(x_grid[i, j], y_grid[i, j], solver.eqn.abc_order)
+            else:
+                u_exact[i, j] = solver.get_analytical_solution(x_grid[i, j], y_grid[i, j])
     end = time.perf_counter()
     print(f"Time {end - start:.4f} seconds")
 
@@ -71,8 +76,9 @@ def plot_comparison(
             x=x_grid,
             y=y_grid,
             z=map_exact,
-            colorscale="reds",
-            opacity=0.5,
+            colorscale=[[0, 'red'], [1, 'red']],
+            showscale=False,
+            opacity=0.4,
             name="Analytical Solution",
         )
     )
@@ -100,7 +106,6 @@ def plot_comparison(
         wandb.finish()
 
     return fig
-
 
 def plot_comparison_2d(
     solver,
@@ -132,7 +137,10 @@ def plot_comparison_2d(
     for i, ri in enumerate(r):
         x = ri * np.cos(theta)
         y = ri * np.sin(theta)
-        u_exact[i] = solver.get_analytical_solution(x, y)
+        if solver.type == "dirichlet_sommerfeld" or solver.type == "default":
+            u_exact[i] = solver.get_analytical_solution_ordered(x, y, order=solver.eqn.abc_order)
+        else:
+            u_exact[i] = solver.get_analytical_solution(x, y)
     end = time.perf_counter()
     print(f"Time {end - start:.4f} seconds")
 
@@ -224,6 +232,7 @@ def plot_convergence(type: str, k_squared_values, n_r_n_theta_values):
     assert type in solvers, f"Invalid solver type: {type} expected one of: {solvers}"
 
     for k_squared in k_squared_values:
+        print(f"k: {k_squared}")
         errors = []
         mesh_sizes = []
 
