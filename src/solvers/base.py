@@ -153,7 +153,12 @@ class BaseSolver(ABC):
                         u_num += N[k] * u_elem[k]
 
                     # Analytical solution at this point
-                    u_exact = self.get_analytical_solution(x, y)
+                    if self.type == "dirichlet_sommerfeld" or self.type == "default":
+                        u_exact = self.get_analytical_solution_ordered(
+                            x, y, self.abc_order
+                        )
+                    else:
+                        u_exact = self.get_analytical_solution(x, y)
 
                     # Jacobian for coordinate transformation
                     J = np.zeros((2, 2))
@@ -184,6 +189,6 @@ class BaseSolver(ABC):
 
     def get_analytical_solution(self, x, y):
         raise NotImplementedError("Analytical solution not implemented")
-    
+
     def get_analytical_solution_ordered(self, x, y, order):
         raise NotImplementedError("Analytical solution not implemented")
