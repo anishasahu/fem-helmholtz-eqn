@@ -118,7 +118,7 @@ class FEM2DNeumannDirichletSolver(BaseSolver):
 
                 self.F[global_indices[i]] += F_e[i]
 
-        self.F += self.N_global 
+        self.F += self.N_global
 
     def solve(self) -> Tuple[NDArray, NDArray]:
         self.assemble()
@@ -165,4 +165,3 @@ class FEM2DNeumannDirichletSolver(BaseSolver):
     #     u_ex = A0 * hankel1(0, k*r)
 
     #     return u_ex
-

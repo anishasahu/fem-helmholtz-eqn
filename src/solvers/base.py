@@ -187,6 +187,6 @@ class BaseSolver(ABC):
 
     def get_analytical_solution(self, x, y):
         raise NotImplementedError("Analytical solution not implemented")
-    
+
     def get_analytical_solution_ordered(self, x, y, order):
         raise NotImplementedError("Analytical solution not implemented")
