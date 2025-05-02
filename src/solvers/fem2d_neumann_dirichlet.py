@@ -2,7 +2,7 @@ from typing import Tuple
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.special import jv, jvp, roots_legendre, yv, yvp, hankel1
+from scipy.special import jv, jvp, roots_legendre, yv, yvp
 
 from .base import BaseSolver
 

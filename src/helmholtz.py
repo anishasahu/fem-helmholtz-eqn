@@ -1,5 +1,6 @@
-import numpy as np
 import gmsh
+import numpy as np
+
 
 class HelmHoltz:
     def __init__(
@@ -49,7 +50,7 @@ class HelmHoltz:
         self.mesh_size = min(
             (self.outer_radius - self.inner_radius) / self.n_r,
             (2 * np.pi * self.inner_radius) / self.n_theta,
-            (2 * np.pi * self.outer_radius) / self.n_theta
+            (2 * np.pi * self.outer_radius) / self.n_theta,
         )
         print(f"Mesh size: {self.mesh_size}")
 
@@ -71,8 +72,12 @@ class HelmHoltz:
         elem_types, elem_tags, node_tags = gmsh.model.mesh.getElements(2)
 
         for i, etype in enumerate(elem_types):
-            num_nodes_per_element = len(node_tags[i]) // len(elem_tags[i])  # Dynamically determine size
-            self.elements.append(np.array(node_tags[i]).reshape(-1, num_nodes_per_element) - 1)
+            num_nodes_per_element = len(node_tags[i]) // len(
+                elem_tags[i]
+            )  # Dynamically determine size
+            self.elements.append(
+                np.array(node_tags[i]).reshape(-1, num_nodes_per_element) - 1
+            )
 
         self.elements = np.vstack(self.elements) if self.elements else np.array([])
 
@@ -123,7 +128,7 @@ class HelmHoltz:
         if order == 1:
             coef = 1j * k
         elif order == 2:
-            coef = 1j * k + 1.0 / (2.0 * self.outer_radius)
+            coef = 1j * k - 1.0 / (2.0 * self.outer_radius)
         elif order == 3:
             for i, ith_node in enumerate(self.outer_boundary_node_indices):
                 theta_i = np.arctan2(self.nodes[ith_node, 1], self.nodes[ith_node, 0])
@@ -133,11 +138,16 @@ class HelmHoltz:
                     )
                     if abs(theta_i - theta_j) < 0.5:
                         coef = (
-                            1j * k
-                            + 1.0 / (2.0 * self.outer_radius)
-                            + 1j / (8.0 * k * self.outer_radius**2)
+                            (1 / (1j * k - 1 / self.outer_radius))
+                            * 0.5
+                            * (
+                                2 * k**2
+                                + 3j * k / self.outer_radius
+                                - 3 / (4 * self.outer_radius**2)
+                                + 1 / self.outer_radius**2
+                            )
                         )
         else:
-            raise ValueError("Invalid order for ABC condition. Enter 1, 2 or 3.")
+            raise ValueError("Invali d order for ABC condition. Enter 1, 2 or 3.")
 
         return coef

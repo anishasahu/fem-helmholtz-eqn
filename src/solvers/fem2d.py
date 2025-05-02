@@ -2,7 +2,7 @@ from typing import Tuple
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.special import h1vp, hankel1, jvp, roots_legendre
+from scipy.special import h1vp, hankel1, jvp, yvp, jn, yn, jv, yv, h1vp, roots_legendre
 
 from .base import BaseSolver
 
@@ -183,27 +183,75 @@ class FEM2DSolver(BaseSolver):
         r = np.sqrt(x**2 + y**2)
         theta = np.arctan2(y, x)
         k = np.sqrt(self.k_squared)
+        a = self.inner_radius
+        b = self.outer_radius
+        
 
-        # Compute the exact solution
-        u_ex = 0 + 0j
+        u_ex = 0.0 + 0.0j
+        for n in range(-self.n_fourier, self.n_fourier + 1):
+            if order == 1:
+                rhs = -1j**n * jvp(n, k*a)
 
-        # Evaluate Hankel functions at unit radius and at r
-        if order == 1:
-            for m in range(-self.n_fourier, self.n_fourier + 1):
-                # Hankel function at r
-                h_r = hankel1(m, k * r)
+                # Matrix for the linear system
+                M = np.array([
+                    [jvp(n, k*a), yvp(n, k*a)],
+                    [jvp(n, k*b) - 1j * jn(n, k*b), yvp(n, k*b) - 1j * yn(n, k*b)]
+                ])
+                
+                coeffs = np.linalg.solve(M, [rhs, 0])
 
-                # Derivatives
-                jp_m = jvp(m, k)
-                hp_m = h1vp(m, k)
+                An = coeffs[0]
+                Bn = coeffs[1] 
 
-                # Contribution for positive n
-                u_ex += (1j**m) * h_r * (jp_m / hp_m) * np.exp(1j * m * theta)
+                term = (An * jn(n, k*r) + Bn * yn(n, k*r)) * np.exp(1j * n * theta)
+                u_ex += term
+            elif order == 2:
+                rhs = -1j**n * jvp(n, k*a)
 
-        elif order == 2:
-            pass
+                # Matrix for the linear system
+                M = np.array([
+                    [jvp(n, k*a), yvp(n, k*a)],
+                    [k * jvp(n, k*b) - (1j*k - 1/(2*b))* jn(n, k*b), k * yvp(n, k*b) - (1j*k - 1/(2*b)) * yn(n, k*b)]
+                ])
+                
+                coeffs = np.linalg.solve(M, [rhs, 0])
 
-        elif order == 3:
-            pass
+                An = coeffs[0]
+                Bn = coeffs[1]
 
+                term = (An * jn(n, k*r) + Bn * yn(n, k*r)) * np.exp(1j * n * theta)
+                u_ex += term
+            elif order == 3:
+                rhs = -1j**n * jvp(n, k*a)
+                            
+                # Matrix for the linear system
+                M = np.array([
+                    [jvp(n, k*a), yvp(n, k*a)],
+                    [(1j * k - 1/b) * jvp(n, k*b) + (0.5 * (2 * k**2 + 3j * k / b - 3 / (4 * b**2) + 1 / b**2)) * jn(n, k*b), (1j * k - 1/b) * yvp(n, k*b) + (0.5 * (2 * k**2 + 3j * k / b - 3 / (4 * b**2) + 1 / b**2)) * yn(n, k*b)]
+                ])
+                
+                coeffs = np.linalg.solve(M, [rhs, 0])
+
+                An = coeffs[0]
+                Bn = coeffs[1]
+
+                term = (An * jn(n, k*r) + Bn * yn(n, k*r)) * np.exp(1j * n * theta)
+                u_ex += term
+        return u_ex
+    
+    def get_analytical_solution(self, x, y) -> complex:
+        u_ex = 0.0 + 0.0j
+        r = np.sqrt(x**2 + y**2)
+        theta = np.arctan2(y, x)
+        k = np.sqrt(self.k_squared)
+        a = self.outer_radius
+
+        for n in range(-self.n_fourier, self.n_fourier + 1):
+            u_ex -= (
+                1j**n
+                * np.exp(1j * n * theta)
+                * jvp(n, k * a) / (h1vp(n, k * a))
+                * hankel1(n, k * r)
+            )
+        
         return u_ex

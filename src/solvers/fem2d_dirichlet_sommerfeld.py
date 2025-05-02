@@ -2,7 +2,7 @@ from typing import Tuple
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.special import j0, y0, j1, y1, jvp, yvp, roots_legendre
+from scipy.special import j0, y0, j1, y1, jvp, yvp, hankel1, roots_legendre
 
 from .base import BaseSolver
 
@@ -110,59 +110,68 @@ class FEM2DDirichletSommerfeldSolver(BaseSolver):
 
         return u_real, u_imag
 
-    def get_analytical_solution_ordered(self, x, y, order: int):
+    # def get_analytical_solution_ordered(self, x, y, order: int):
+    #     r = np.sqrt(x**2 + y**2)
+    #     k = np.sqrt(self.k_squared)
+
+    #     # Construct the coefficient matrix using Bessel functions
+    #     if order == 1:
+    #         matrix = np.array(
+    #             [
+    #                 [
+    #                     j0(k),
+    #                     y0(k),
+    #                 ],  # Inner boundary condition
+    #                 [
+    #                     jvp(0, k * self.outer_radius) - 1j * j0(k * self.outer_radius),
+    #                     yvp(0, k * self.outer_radius) - 1j * y0(k * self.outer_radius),
+    #                 ],  # Outer boundary condition
+    #             ]
+    #         )
+        
+    #     elif order == 2:
+    #         # ∂u/∂r - (ik - 1/(2R)) * u = 0 at r = R
+    #         matrix = np.array(
+    #             [
+    #                 [
+    #                     j0(k),
+    #                     y0(k),
+    #                 ],  # Inner boundary condition
+    #                 [
+    #                     -j1(k * self.outer_radius) * k - (1j * k + 1 / (2 * self.outer_radius)) * j0(k * self.outer_radius),
+    #                     -y1(k * self.outer_radius) * k - (1j * k + 1 / (2 * self.outer_radius)) * y0(k * self.outer_radius)
+    #                 ],  # Outer boundary condition
+    #             ]
+    #         )
+
+    #     elif order == 3:
+    #         matrix = np.array(
+    #             [
+    #                 [
+    #                     j0(k * self.inner_radius),
+    #                     y0(k * self.inner_radius),
+    #                 ],  # Inner boundary condition
+    #                 [
+    #                     -k * j1(k * self.outer_radius) - 1j * k * j0(k * self.outer_radius) - (1 / (2 * self.outer_radius)) * j0(k * self.outer_radius) - (1j / (8 * k * self.outer_radius ** 2)) * j0(k * self.outer_radius),
+    #                     -k * y1(k * self.outer_radius) - 1j * k * y0(k * self.outer_radius) - (1 / (2 * self.outer_radius)) * y0(k * self.outer_radius) - (1j / (8 * k * self.outer_radius ** 2)) * y0(k * self.outer_radius)
+    #                 ],  # Outer boundary condition
+    #             ]
+    #         )
+
+    #     # Right-hand side vector for boundary conditions
+    #     rhs = np.array([1, 0])
+
+    #     # Solve the system of equations to find coefficients A and B
+    #     A, B = np.linalg.solve(matrix, rhs)
+
+    #     # Compute and return the analytical solution at all node positions
+    #     return A * j0(k * r) + B * y0(k * r)
+
+    def get_analytical_solution(self, x, y) -> complex:
         r = np.sqrt(x**2 + y**2)
         k = np.sqrt(self.k_squared)
-
-        # Construct the coefficient matrix using Bessel functions
-        if order == 1:
-            matrix = np.array(
-                [
-                    [
-                        j0(k),
-                        y0(k),
-                    ],  # Inner boundary condition
-                    [
-                        jvp(0, k * self.outer_radius) - 1j * j0(k * self.outer_radius),
-                        yvp(0, k * self.outer_radius) - 1j * y0(k * self.outer_radius),
-                    ],  # Outer boundary condition
-                ]
-            )
         
-        elif order == 2:
-            # ∂u/∂r - (ik - 1/(2R)) * u = 0 at r = R
-            matrix = np.array(
-                [
-                    [
-                        j0(k),
-                        y0(k),
-                    ],  # Inner boundary condition
-                    [
-                        -j1(k * self.outer_radius) * k - (1j * k + 1 / (2 * self.outer_radius)) * j0(k * self.outer_radius),
-                        -y1(k * self.outer_radius) * k - (1j * k + 1 / (2 * self.outer_radius)) * y0(k * self.outer_radius)
-                    ],  # Outer boundary condition
-                ]
-            )
+        return hankel1(0, k * r) / hankel1(0, k)
+    
 
-        elif order == 3:
-            matrix = np.array(
-                [
-                    [
-                        j0(k * self.inner_radius),
-                        y0(k * self.inner_radius),
-                    ],  # Inner boundary condition
-                    [
-                        -k * j1(k * self.outer_radius) - 1j * k * j0(k * self.outer_radius) - (1 / (2 * self.outer_radius)) * j0(k * self.outer_radius) - (1j / (8 * k * self.outer_radius ** 2)) * j0(k * self.outer_radius),
-                        -k * y1(k * self.outer_radius) - 1j * k * y0(k * self.outer_radius) - (1 / (2 * self.outer_radius)) * y0(k * self.outer_radius) - (1j / (8 * k * self.outer_radius ** 2)) * y0(k * self.outer_radius)
-                    ],  # Outer boundary condition
-                ]
-            )
-
-        # Right-hand side vector for boundary conditions
-        rhs = np.array([1, 0])
-
-        # Solve the system of equations to find coefficients A and B
-        A, B = np.linalg.solve(matrix, rhs)
-
-        # Compute and return the analytical solution at all node positions
-        return A * j0(k * r) + B * y0(k * r)
+        
