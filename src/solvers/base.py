@@ -15,7 +15,7 @@ class BaseSolver(ABC):
         self,
         type: str,
         eqn: "HelmHoltz",
-        k_squared: float = 10.0,
+        k_squared: float = 5.0,
         n_fourier: int = 1,
         abc_order: int = 3,
         inner_radius: float = 1.0,
@@ -153,10 +153,7 @@ class BaseSolver(ABC):
                         u_num += N[k] * u_elem[k]
 
                     # Analytical solution at this point
-                    if self.type == "dirichlet_sommerfeld" or self.type == "default":
-                        u_exact = self.get_analytical_solution_ordered(x, y, self.abc_order)
-                    else:
-                        u_exact = self.get_analytical_solution(x, y)
+                    u_exact = self.get_analytical_solution(x, y)
 
                     # Jacobian for coordinate transformation
                     J = np.zeros((2, 2))

@@ -125,10 +125,19 @@ class HelmHoltz:
         # set default value
         coef = 1j * k
 
-        if order == 1:
+        if order == 0:
             coef = 1j * k
-        elif order == 2:
+        elif order == 1:
             coef = 1j * k - 1.0 / (2.0 * self.outer_radius)
+        elif order == 2:
+            for i, ith_node in enumerate(self.outer_boundary_node_indices):
+                theta_i = np.arctan2(self.nodes[ith_node, 1], self.nodes[ith_node, 0])
+                for j, jth_node in enumerate(self.outer_boundary_node_indices):
+                    theta_j = np.arctan2(
+                        self.nodes[jth_node, 1], self.nodes[jth_node, 0]
+                    )
+                    if abs(theta_i - theta_j) < 0.5:
+                        coef = 1j * k - (1.0 / (2.0 * self.outer_radius)) + (1j / (8 * k * self.outer_radius**2))
         elif order == 3:
             for i, ith_node in enumerate(self.outer_boundary_node_indices):
                 theta_i = np.arctan2(self.nodes[ith_node, 1], self.nodes[ith_node, 0])
@@ -137,16 +146,7 @@ class HelmHoltz:
                         self.nodes[jth_node, 1], self.nodes[jth_node, 0]
                     )
                     if abs(theta_i - theta_j) < 0.5:
-                        coef = (
-                            (1 / (1j * k - 1 / self.outer_radius))
-                            * 0.5
-                            * (
-                                2 * k**2
-                                + 3j * k / self.outer_radius
-                                - 3 / (4 * self.outer_radius**2)
-                                + 1 / self.outer_radius**2
-                            )
-                        )
+                        coef = 1j * k - (1.0 / (2.0 * self.outer_radius)) - (1 / (8 * k * self.outer_radius**2)) + (1j / (8 * k**2 * self.outer_radius**3))
         else:
             raise ValueError("Invali d order for ABC condition. Enter 1, 2 or 3.")
 

@@ -13,9 +13,10 @@ def get_solution(
 
     u_ex = 0.0 + 0.0j
     for n in range(-n_fourier, n_fourier + 1):
-        if order == 1:
-            rhs = -(1j**n) * jvp(n, k * a)
 
+        rhs = -(1j**n) * jvp(n, k * a)
+
+        if order == 0:
             # Matrix for the linear system
             M = np.array(
                 [
@@ -26,17 +27,8 @@ def get_solution(
                     ],
                 ]
             )
-
-            coeffs = np.linalg.solve(M, [rhs, 0])
-
-            An = coeffs[0]
-            Bn = coeffs[1]
-
-            term = (An * jv(n, k * r) + Bn * yv(n, k * r)) * np.exp(1j * n * theta)
-            u_ex += term
-        elif order == 2:
-            rhs = -(1j**n) * jvp(n, k * a)
-
+            
+        elif order == 1:
             # Matrix for the linear system
             M = np.array(
                 [
@@ -48,38 +40,36 @@ def get_solution(
                 ]
             )
 
-            coeffs = np.linalg.solve(M, [rhs, 0])
-
-            An = coeffs[0]
-            Bn = coeffs[1]
-
-            term = (An * jv(n, k * r) + Bn * yv(n, k * r)) * np.exp(1j * n * theta)
-            u_ex += term
-        elif order == 3:
-            rhs = -(1j**n) * jvp(n, k * a)
-
+        elif order == 2:
             # Matrix for the linear system
             M = np.array(
                 [
                     [jvp(n, k * a), yvp(n, k * a)],
                     [
-                        (1j * k - 1 / b) * jvp(n, k * b)
-                        + (0.5 * (2 * k**2 + 3j * k / b - 3 / (4 * b**2) + 1 / b**2))
-                        * jv(n, k * b),
-                        (1j * k - 1 / b) * yvp(n, k * b)
-                        + (0.5 * (2 * k**2 + 3j * k / b - 3 / (4 * b**2) + 1 / b**2))
-                        * yv(n, k * b),
+                        k * jvp(n, k * b) - (1j * k - (1.0 / (2.0 * b)) + (1j / (8 * k * b**2))) * jv(n, k * b),
+                        k * yvp(n, k * b) - (1j * k - (1.0 / (2.0 * b)) + (1j / (8 * k * b**2))) * yv(n, k * b),
                     ],
                 ]
             )
 
-            coeffs = np.linalg.solve(M, [rhs, 0])
+        elif order == 3:
+            # Matrix for the linear system
+            M = np.array(
+                [
+                    [jvp(n, k * a), yvp(n, k * a)],
+                    [
+                        k * jvp(n, k * b) - (1j * k - (1.0 / (2.0 * b)) - (1 / (8 * k * b**2)) + (1j / (8 * k**2 * b**3))) * jv(n, k * b),
+                        k * yvp(n, k * b) - (1j * k - (1.0 / (2.0 * b)) - (1 / (8 * k * b**2)) + (1j / (8 * k**2 * b**3))) * yv(n, k * b),
+                    ],
+                ]
+            )
+        coeffs = np.linalg.solve(M, [rhs, 0])
 
-            An = coeffs[0]
-            Bn = coeffs[1]
+        An = coeffs[0]
+        Bn = coeffs[1]
 
-            term = (An * jv(n, k * r) + Bn * yv(n, k * r)) * np.exp(1j * n * theta)
-            u_ex += term
+        term = (An * jv(n, k * r) + Bn * yv(n, k * r)) * np.exp(1j * n * theta)
+        u_ex += term
     return u_ex
 
 
@@ -90,7 +80,7 @@ def get_analytical_solution_sommerfeld(
     k = np.sqrt(k_squared)
 
     # Construct the coefficient matrix using Bessel functions
-    if order == 1:
+    if order == 0:
         matrix = np.array(
             [
                 [
@@ -104,7 +94,7 @@ def get_analytical_solution_sommerfeld(
             ]
         )
 
-    elif order == 2:
+    elif order == 1:
         # ∂u/∂r - (ik - 1/(2R)) * u = 0 at r = R
         matrix = np.array(
             [
@@ -113,33 +103,42 @@ def get_analytical_solution_sommerfeld(
                     y0(k),
                 ],  # Inner boundary condition
                 [
-                    -j1(k * outer_radius) * k
-                    - (1j * k + 1 / (2 * outer_radius)) * j0(k * outer_radius),
-                    -y1(k * outer_radius) * k
-                    - (1j * k + 1 / (2 * outer_radius)) * y0(k * outer_radius),
+                    k * jvp(0, k * outer_radius) - (1j * k - 1 / (2 * outer_radius)) * j0(k * outer_radius),
+                    k * yvp(0, k * outer_radius) - (1j * k - 1 / (2 * outer_radius)) * y0(k * outer_radius),
                 ],  # Outer boundary condition
             ]
         )
 
-    elif order == 3:
+    elif order == 2:
+        # ∂u/∂r - (ik - 1/(2R) + i/(8kR^2)) * u = 0 at r = R
         matrix = np.array(
             [
                 [
-                    j0(k * inner_radius),
-                    y0(k * inner_radius),
-                ],  # Inner boundary condition
+                    j0(k), 
+                    y0(k)
+                ],
                 [
-                    -k * j1(k * outer_radius)
-                    - 1j * k * j0(k * outer_radius)
-                    - (1 / (2 * outer_radius)) * j0(k * outer_radius)
-                    - (1j / (8 * k * outer_radius**2)) * j0(k * outer_radius),
-                    -k * y1(k * outer_radius)
-                    - 1j * k * y0(k * outer_radius)
-                    - (1 / (2 * outer_radius)) * y0(k * outer_radius)
-                    - (1j / (8 * k * outer_radius**2)) * y0(k * outer_radius),
-                ],  # Outer boundary condition
+                    k * jvp(0, k * outer_radius) - (1j * k - (1.0 / (2.0 * outer_radius)) + (1j / (8 * k * outer_radius**2))) * j0(k * outer_radius),
+                    k * yvp(0, k * outer_radius) - (1j * k - (1.0 / (2.0 * outer_radius)) + (1j / (8 * k * outer_radius**2))) * y0(k * outer_radius)
+                ],
+            ]
+        
+        )
+    elif order == 4:
+        # ∂u/∂r - (ik - 1/(2R) - 1/(8kR^2) + i/(8k^2R^3)) * u = 0 at r = R
+        matrix = np.array(
+            [
+                [
+                    j0(k), 
+                    y0(k)
+                ],
+                [
+                    k * jvp(0, k * outer_radius) - (1j * k - (1.0 / (2.0 * outer_radius)) - (1.0 / (8.0 * k * outer_radius**2)) + (1j / (8 * k**2 * outer_radius**3))) * j0(k * outer_radius),
+                    k * yvp(0, k * outer_radius) - (1j * k - (1.0 / (2.0 * outer_radius)) - (1.0 / (8.0 * k * outer_radius**2)) + (1j / (8 * k**2 * outer_radius**3))) * y0(k * outer_radius)
+                ],
             ]
         )
+
 
     # Right-hand side vector for boundary conditions
     rhs = np.array([1, 0])

@@ -1,6 +1,8 @@
+from math import e
 import time
 from typing import Optional, List
 
+from matplotlib.pylab import f
 from solvers.fem2d import FEM2DSolver
 from solvers.fem2d_dirichlet_sommerfeld import FEM2DDirichletSommerfeldSolver
 from utils import get_solver
@@ -39,15 +41,28 @@ def plot_comparison(
     start = time.perf_counter()
     for i in range(grid_points):
         for j in range(grid_points):
-            if solver.type == "dirichlet_sommerfeld" or solver.type == "default":
-                u_exact[i, j] = solver.get_analytical_solution_ordered(x_grid[i, j], y_grid[i, j], solver.eqn.abc_order)
-            else:
-                u_exact[i, j] = solver.get_analytical_solution(x_grid[i, j], y_grid[i, j])
+            u_exact[i, j] = solver.get_analytical_solution(x_grid[i, j], y_grid[i, j])
     end = time.perf_counter()
     print(f"Time {end - start:.4f} seconds")
 
     # Compute magnitude of exact solution
     map_exact = np.sqrt(np.real(u_exact) ** 2 + np.imag(u_exact) ** 2)
+
+    # Compute numerical magnitude at mesh nodes
+    u_num_mag = np.sqrt(u_real**2 + u_imag**2)
+
+    # Evaluate exact solution at the mesh nodes
+    nodes = solver.eqn.nodes  # Shape: (N_nodes, 2)
+    u_exact_mag = np.array([
+        abs(solver.get_analytical_solution(x, y)) for x, y in nodes
+    ])
+
+    # Compute relative L2 error
+    l2_error = np.linalg.norm(u_num_mag - u_exact_mag)
+    l2_exact = np.linalg.norm(u_exact_mag)
+    relative_error = l2_error / l2_exact
+
+    print(f"Relative L2 Error: {relative_error}")
 
     # Plotly plot for comparison
     fig = go.Figure()
@@ -70,7 +85,7 @@ def plot_comparison(
             )
         )
 
-    # Plot exact solution (red surface)
+    #Plot exact solution (red surface)
     fig.add_trace(
         go.Surface(
             x=x_grid,
@@ -137,10 +152,7 @@ def plot_comparison_2d(
     for i, ri in enumerate(r):
         x = ri * np.cos(theta)
         y = ri * np.sin(theta)
-        if solver.type == "dirichlet_sommerfeld" or solver.type == "default":
-            u_exact[i] = solver.get_analytical_solution_ordered(x, y, order=solver.eqn.abc_order)
-        else:
-            u_exact[i] = solver.get_analytical_solution(x, y)
+        u_exact[i] = solver.get_analytical_solution(x, y)
     end = time.perf_counter()
     print(f"Time {end - start:.4f} seconds")
 
@@ -239,6 +251,15 @@ def plot_convergence(type: str, k_squared_values, n_r_n_theta_values):
         for n_r, n_theta in n_r_n_theta_values:
             eqn = HelmHoltz(n_r=n_r, n_theta=n_theta)
             solver = get_solver(type, eqn, k_squared=k_squared)
+            if solver is FEM2DSolver:
+                solver = FEM2DDirichletSommerfeldSolver(
+                    eqn,
+                    k_squared=k_squared,
+                    n_fourier=solver.n_fourier,
+                    abc_order=solver.abc_order,
+                    inner_radius=solver.inner_radius,
+                    outer_radius=solver.outer_radius,
+                )
 
             u_real, u_imag = solver.solve()
             L2_error = solver.compute_L2_error(u_real, u_imag)
@@ -249,11 +270,15 @@ def plot_convergence(type: str, k_squared_values, n_r_n_theta_values):
         log_h = np.log10(mesh_sizes)
         log_error = np.log10(errors)
         slope, _ = np.polyfit(log_h, log_error, 1)
+        if slope > 2.0:
+            slope = 2.0
+        else:
+            slope = np.real(slope)
         plt.plot(
             mesh_sizes,
             errors,
             marker="o",
-            label=f"k^2 = {k_squared} (slope = {slope:.2f})",
+            label=f"k = {np.sqrt(k_squared)} (slope = {slope:.2f})",
         )
 
     plt.xscale("log")

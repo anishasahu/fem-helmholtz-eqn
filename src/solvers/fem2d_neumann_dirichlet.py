@@ -22,7 +22,7 @@ class FEM2DNeumannDirichletSolver(BaseSolver):
             # Contribution for n
             normal_derivative += (1j**m) * k * jnp * np.exp(1j * m * theta)
 
-        return -normal_derivative
+        return normal_derivative
 
     def neumann_element_matrices(self, idx):
         # Get element nodes and coordinates
