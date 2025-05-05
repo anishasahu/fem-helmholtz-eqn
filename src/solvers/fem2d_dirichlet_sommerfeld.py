@@ -5,7 +5,7 @@ from numpy.typing import NDArray
 from scipy.special import hankel1, roots_legendre
 
 from .base import BaseSolver
-# from .utils import get_analytical_solution_sommerfeld
+from .utils import get_analytical_solution_sommerfeld
 
 
 class FEM2DDirichletSommerfeldSolver(BaseSolver):
@@ -118,9 +118,9 @@ class FEM2DDirichletSommerfeldSolver(BaseSolver):
         # Calculate the wave number k. Note that self.k_squared should be non-negative.
         k = np.sqrt(self.k_squared)
 
-        # ans = get_analytical_solution_sommerfeld(
-        #     x, y, self.abc_order, self.k_squared, self.inner_radius, self.outer_radius
-        # )
+        ans = get_analytical_solution_sommerfeld(
+            x, y, self.abc_order, self.k_squared, self.inner_radius, self.outer_radius
+        )
 
         # Calculate a specific analytical solution (u_ex) based on Hankel function of the first kind of order 0.
         # This solution is specific to the annular region between inner_radius and outer_radius.
@@ -128,4 +128,4 @@ class FEM2DDirichletSommerfeldSolver(BaseSolver):
         # It is normalized by the value of the same Hankel function evaluated at the inner radius.
         u_ex = hankel1(0, k * r) / hankel1(0, k * self.inner_radius)
 
-        return u_ex
+        return ans
