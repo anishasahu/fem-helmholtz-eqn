@@ -2,9 +2,10 @@ from typing import Tuple
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.special import j0, y0, j1, y1, jvp, yvp, hankel1, roots_legendre
+from scipy.special import hankel1, roots_legendre
 
 from .base import BaseSolver
+from .utils import get_analytical_solution_sommerfeld
 
 
 class FEM2DDirichletSommerfeldSolver(BaseSolver):
@@ -27,7 +28,7 @@ class FEM2DDirichletSommerfeldSolver(BaseSolver):
         node_coords = self.eqn.nodes[element]
 
         S_e = np.zeros((4, 4), dtype=complex)
-        gauss_points, gauss_weights = roots_legendre(2)
+        gauss_points, gauss_weights = roots_legendre(4)
 
         # Define the edges of the 4-node element
         edges = [
@@ -68,10 +69,11 @@ class FEM2DDirichletSommerfeldSolver(BaseSolver):
                 for local_m in range(2):  # Only iterate over 1D shape functions
                     global_m = edge[local_m]  # Map to the correct global node index
                     for local_n in range(2):
-                        global_n = edge[local_m]
+                        global_n = edge[local_n]
                         S_e[global_m, global_n] += (
                             N[local_m] * N[local_n] * sommerfeld_coef * ds * weight
                         )
+            
 
         return S_e
 
@@ -110,68 +112,20 @@ class FEM2DDirichletSommerfeldSolver(BaseSolver):
 
         return u_real, u_imag
 
-    # def get_analytical_solution_ordered(self, x, y, order: int):
-    #     r = np.sqrt(x**2 + y**2)
-    #     k = np.sqrt(self.k_squared)
-
-    #     # Construct the coefficient matrix using Bessel functions
-    #     if order == 1:
-    #         matrix = np.array(
-    #             [
-    #                 [
-    #                     j0(k),
-    #                     y0(k),
-    #                 ],  # Inner boundary condition
-    #                 [
-    #                     jvp(0, k * self.outer_radius) - 1j * j0(k * self.outer_radius),
-    #                     yvp(0, k * self.outer_radius) - 1j * y0(k * self.outer_radius),
-    #                 ],  # Outer boundary condition
-    #             ]
-    #         )
-        
-    #     elif order == 2:
-    #         # ∂u/∂r - (ik - 1/(2R)) * u = 0 at r = R
-    #         matrix = np.array(
-    #             [
-    #                 [
-    #                     j0(k),
-    #                     y0(k),
-    #                 ],  # Inner boundary condition
-    #                 [
-    #                     -j1(k * self.outer_radius) * k - (1j * k + 1 / (2 * self.outer_radius)) * j0(k * self.outer_radius),
-    #                     -y1(k * self.outer_radius) * k - (1j * k + 1 / (2 * self.outer_radius)) * y0(k * self.outer_radius)
-    #                 ],  # Outer boundary condition
-    #             ]
-    #         )
-
-    #     elif order == 3:
-    #         matrix = np.array(
-    #             [
-    #                 [
-    #                     j0(k * self.inner_radius),
-    #                     y0(k * self.inner_radius),
-    #                 ],  # Inner boundary condition
-    #                 [
-    #                     -k * j1(k * self.outer_radius) - 1j * k * j0(k * self.outer_radius) - (1 / (2 * self.outer_radius)) * j0(k * self.outer_radius) - (1j / (8 * k * self.outer_radius ** 2)) * j0(k * self.outer_radius),
-    #                     -k * y1(k * self.outer_radius) - 1j * k * y0(k * self.outer_radius) - (1 / (2 * self.outer_radius)) * y0(k * self.outer_radius) - (1j / (8 * k * self.outer_radius ** 2)) * y0(k * self.outer_radius)
-    #                 ],  # Outer boundary condition
-    #             ]
-    #         )
-
-    #     # Right-hand side vector for boundary conditions
-    #     rhs = np.array([1, 0])
-
-    #     # Solve the system of equations to find coefficients A and B
-    #     A, B = np.linalg.solve(matrix, rhs)
-
-    #     # Compute and return the analytical solution at all node positions
-    #     return A * j0(k * r) + B * y0(k * r)
-
     def get_analytical_solution(self, x, y) -> complex:
+        # Calculate the radial distance from the origin to the point (x, y).
         r = np.sqrt(x**2 + y**2)
+        # Calculate the wave number k. Note that self.k_squared should be non-negative.
         k = np.sqrt(self.k_squared)
-        
-        return hankel1(0, k * r) / hankel1(0, k)
-    
 
-        
+        ans = get_analytical_solution_sommerfeld(
+            x, y, self.abc_order, self.k_squared, self.inner_radius, self.outer_radius
+        )
+
+        # Calculate a specific analytical solution (u_ex) based on Hankel function of the first kind of order 0.
+        # This solution is specific to the annular region between inner_radius and outer_radius.
+        # The Hankel function of the first kind (hankel1) represents an outgoing cylindrical wave.
+        # It is normalized by the value of the same Hankel function evaluated at the inner radius.
+        u_ex = hankel1(0, k * r) / hankel1(0, k * self.inner_radius)
+
+        return ans

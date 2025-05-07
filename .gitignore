@@ -9,3 +9,4 @@ assets
 **/*.json
 **/*.txt
 uv.lock
+runner.py
