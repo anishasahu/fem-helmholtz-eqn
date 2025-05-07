@@ -3,12 +3,6 @@ uv sync
 pre-commit install
 ```
 
-Run using 
-
-```
-uv run runner.py
-```
-
 
 |           class            | inner boudary | outer boundary |
 | :------------------------: | :-----------: | :------------: |
